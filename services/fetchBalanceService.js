@@ -49,10 +49,9 @@ module.exports = async address => {
     })
     );
   });
-
+  
   let balances = {
     confirmations0: _.chain(rawCoins)
-      .filter(c => c.height > -1)
       .map(coin => coin.value)
       .sum()
       .defaultTo(0)
