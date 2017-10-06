@@ -58,9 +58,10 @@ let init = async () => {
           return heightDiff === 3 || heightDiff === 6;
         });
 
-        for (let i = 0; i < filteredLastTxs.length; i++) {
-          let txHash = filteredLastTxs[i].txid;
+        for (let filteredLastTx of filteredLastTxs) {
+          let txHash = filteredLastTx.txid;
           let tx = await fetchTXService(txHash);
+          tx.confirmations = payload.block - filteredLastTx.blockHeight;
 
           for (let i = 0; i < tx.inputs.length; i++) {
             let txOut = await fetchTXService(tx.inputs[i].prevout.hash);
@@ -90,10 +91,6 @@ let init = async () => {
                   Object.assign(result, item)
               }, {})
               .omit('min')
-              .merge({
-                lastBlockCheck: balances.lastBlockCheck,
-                lastTxs: _.filter(account.lastTxs, item => payload.block - item.blockHeight <= 6)
-              })
               .value()
           }, {new: true});
 
@@ -104,13 +101,11 @@ let init = async () => {
           })));
         }
 
-
-
         await accountModel.update({address: account.address}, {
           $set: {
-            lastBlockCheck: balances.lastBlockCheck,
-              lastTxs: _.filter(account.lastTxs, item => payload.block - item.blockHeight <= 6)
-            }
+            lastBlockCheck: payload.block,
+            lastTxs: _.filter(account.lastTxs, item => payload.block - item.blockHeight <= 6)
+          }
         });
       }
 
