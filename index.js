@@ -92,13 +92,7 @@ let init = async () => {
               .omit('min')
               .merge({
                 lastBlockCheck: balances.lastBlockCheck,
-                lastTxs: _.chain(tx)
-                  .thru(tx =>
-                    [({txid: tx.hash, blockHeight: tx.block})]
-                  )
-                  .union(_.get(account, 'lastTxs', []))
-                  .uniqBy('txid')
-                  .value()
+                lastTxs: _.filter(account.lastTxs, item => payload.block - item.blockHeight <= 6)
               })
               .value()
           }, {new: true});
@@ -109,6 +103,15 @@ let init = async () => {
             tx: tx
           })));
         }
+
+
+
+        await accountModel.update({address: account.address}, {
+          $set: {
+            lastBlockCheck: balances.lastBlockCheck,
+              lastTxs: _.filter(account.lastTxs, item => payload.block - item.blockHeight <= 6)
+            }
+        });
       }
 
     } catch (e) {
