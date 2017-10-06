@@ -42,15 +42,37 @@ module.exports = async hash => {
   let rawTx = await new Promise((res, rej) => {
     ipcInstance.of[config.bitcoin.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
     ipcInstance.of[config.bitcoin.ipcName].emit('message', JSON.stringify({
-      method: 'getrawtransaction',
-      params: [hash]
-    })
+        method: 'getrawtransaction',
+        params: [hash, 1]
+      })
     );
   });
+
+  let block = rawTx.blockhash ? await new Promise((res, rej) => {
+    ipcInstance.of[config.bitcoin.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
+    ipcInstance.of[config.bitcoin.ipcName].emit('message', JSON.stringify({
+        method: 'getblockheader',
+        params: [rawTx.blockhash]
+      })
+    );
+  }) :
+    await new Promise((res, rej) => {
+      ipcInstance.of[config.bitcoin.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
+      ipcInstance.of[config.bitcoin.ipcName].emit('message', JSON.stringify({
+          method: 'getblockcount',
+          params: []
+        })
+      );
+    });
+
 
   let network = Network.get(config.bitcoin.network);
 
   ipcInstance.disconnect(config.bitcoin.ipcName);
 
-  return Tx.fromRaw(rawTx, 'hex').getJSON(network);
+  let tx = Tx.fromRaw(rawTx.hex, 'hex').getJSON(network);
+  tx.block = rawTx.blockhash ? block.height: block + 1;
+  tx.confirmations = rawTx.confirmations;
+
+  return tx;
 };
