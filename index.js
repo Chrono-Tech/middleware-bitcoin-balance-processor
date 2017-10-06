@@ -43,6 +43,8 @@ let init = async () => {
   channel.consume(`app_${config.rabbit.serviceName}.balance_processor.block`, async data => {
     try {
       let payload = JSON.parse(data.content.toString());
+      console.log(payload);
+
       let accounts = await accountModel.find({
         $where: 'obj.lastTxs.length > 0',
         lastBlockCheck: {$lt: payload.block}
@@ -77,24 +79,36 @@ let init = async () => {
 
           tx.fee = tx.valueIn - tx.valueOut;
 
+          let savedAccount = await accountModel.findOneAndUpdate({address: account.address}, {
+            $set: _.chain([
+              {'balances.confirmations0': balances.balances.confirmations0, min: 0},
+              {'balances.confirmations3': balances.balances.confirmations3, min: 3},
+              {'balances.confirmations6': balances.balances.confirmations6, min: 6}
+            ])
+              .transform((result, item) => {
+                if (tx.confirmations >= item.min)
+                  Object.assign(result, item)
+              }, {})
+              .omit('min')
+              .merge({
+                lastBlockCheck: balances.lastBlockCheck,
+                lastTxs: _.chain(tx)
+                  .thru(tx =>
+                    [({txid: tx.hash, blockHeight: tx.block})]
+                  )
+                  .union(_.get(account, 'lastTxs', []))
+                  .uniqBy('txid')
+                  .value()
+              })
+              .value()
+          }, {new: true});
+
           channel.publish('events', `${config.rabbit.serviceName}_balance.${payload.address}`, new Buffer(JSON.stringify({
             address: payload.address,
-            balances: balances.balances,
+            balances: savedAccount.balances,
             tx: tx
           })));
-
         }
-
-        await accountModel.update({address: account.address, lastBlockCheck: {$lt: payload.block}}, {
-          $set: {
-            'balances.confirmations0': balances.balances.confirmations0,
-            'balances.confirmations3': balances.balances.confirmations3,
-            'balances.confirmations6': balances.balances.confirmations6,
-            lastBlockCheck: payload.block,
-            lastTxs: _.filter(account.lastTxs, item => payload.block - item.blockHeight <= 6)
-          }
-        }
-        );
       }
 
     } catch (e) {
@@ -108,22 +122,21 @@ let init = async () => {
     try {
       let payload = JSON.parse(data.content.toString());
       let balances = await fetchBalanceService(payload.address);
-      await accountModel.update({address: payload.address, lastBlockCheck: {$lt: balances.lastBlockCheck}}, {
-        $set: {
-          'balances.confirmations0': balances.balances.confirmations0,
-          'balances.confirmations3': balances.balances.confirmations3,
-          'balances.confirmations6': balances.balances.confirmations6,
-          lastBlockCheck: balances.lastBlockCheck,
-        },
-        $push: {
-          lastTxs: {
-            $each: payload.txs.map(tx => ({txid: tx, blockHeight: payload.block}))
-          }
-        }
-      }
-      );
 
-      for (let txHash of payload.txs) {
+      let account = await accountModel.findOne({address: payload.address});
+
+      let newTxHashes = _.chain(payload)
+        .get('txs')
+        .reject(txHash =>
+          _.chain(account)
+            .get('lastTxs', [])
+            .find({txid: txHash})
+            .value()
+        )
+        .value();
+
+      for (let txHash of newTxHashes) {
+
         let tx = await fetchTXService(txHash);
 
         if (_.find(tx.inputs, {prevout: {hash: '0000000000000000000000000000000000000000000000000000000000000000'}})) {
@@ -154,9 +167,36 @@ let init = async () => {
 
         tx.fee = tx.valueIn - tx.valueOut;
 
+        let savedAccount = await accountModel.findOneAndUpdate({
+          address: payload.address,
+          lastBlockCheck: {$lte: balances.lastBlockCheck}
+        }, {
+          $set: _.chain([
+            {'balances.confirmations0': balances.balances.confirmations0, min: 0},
+            {'balances.confirmations3': balances.balances.confirmations3, min: 3},
+            {'balances.confirmations6': balances.balances.confirmations6, min: 6}
+          ])
+            .transform((result, item) => {
+              if (tx.confirmations >= item.min)
+                Object.assign(result, item)
+            }, {})
+            .omit('min')
+            .merge({
+              lastBlockCheck: balances.lastBlockCheck,
+              lastTxs: _.chain(tx)
+                .thru(tx =>
+                  [({txid: tx.hash, blockHeight: tx.block})]
+                )
+                .union(_.get(account, 'lastTxs', []))
+                .uniqBy('txid')
+                .value()
+            })
+            .value()
+        }, {new: true});
+
         channel.publish('events', `${config.rabbit.serviceName}_balance.${payload.address}`, new Buffer(JSON.stringify({
           address: payload.address,
-          balances: balances.balances,
+          balances: savedAccount.balances,
           tx: tx
         })));
 
