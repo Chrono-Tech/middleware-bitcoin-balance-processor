@@ -43,7 +43,6 @@ let init = async () => {
   channel.consume(`app_${config.rabbit.serviceName}.balance_processor.block`, async data => {
     try {
       let payload = JSON.parse(data.content.toString());
-      console.log(payload);
 
       let accounts = await accountModel.find({
         $where: 'obj.lastTxs.length > 0',
@@ -51,7 +50,7 @@ let init = async () => {
       });
 
       for (let account of accounts) {
-        let balances = await fetchBalanceService(account.address);
+        let balance = await fetchBalanceService(account.address);
 
         let filteredLastTxs = _.filter(account.lastTxs, item => {
           let heightDiff = payload.block - item.blockHeight;
@@ -82,9 +81,9 @@ let init = async () => {
 
           let savedAccount = await accountModel.findOneAndUpdate({address: account.address}, {
             $set: _.chain([
-              {'balances.confirmations0': balances.balances.confirmations0, min: 0},
-              {'balances.confirmations3': balances.balances.confirmations3, min: 3},
-              {'balances.confirmations6': balances.balances.confirmations6, min: 6}
+              {'balances.confirmations0': balance.balance, min: 0},
+              {'balances.confirmations3': balance.balance, min: 3},
+              {'balances.confirmations6': balance.balance, min: 6}
             ])
               .transform((result, item) => {
                 if (tx.confirmations >= item.min)
@@ -119,7 +118,7 @@ let init = async () => {
   channel.consume(`app_${config.rabbit.serviceName}.balance_processor.tx`, async (data) => {
     try {
       let payload = JSON.parse(data.content.toString());
-      let balances = await fetchBalanceService(payload.address);
+      let balance = await fetchBalanceService(payload.address);
 
       let account = await accountModel.findOne({address: payload.address});
 
@@ -167,12 +166,12 @@ let init = async () => {
 
         let savedAccount = await accountModel.findOneAndUpdate({
           address: payload.address,
-          lastBlockCheck: {$lte: balances.lastBlockCheck}
+          lastBlockCheck: {$lte: balance.lastBlockCheck}
         }, {
           $set: _.chain([
-            {'balances.confirmations0': balances.balances.confirmations0, min: 0},
-            {'balances.confirmations3': balances.balances.confirmations3, min: 3},
-            {'balances.confirmations6': balances.balances.confirmations6, min: 6}
+            {'balances.confirmations0': balance.balance, min: 0},
+            {'balances.confirmations3': balance.balance, min: 3},
+            {'balances.confirmations6': balance.balance, min: 6}
           ])
             .transform((result, item) => {
               if (tx.confirmations >= item.min)
@@ -180,7 +179,7 @@ let init = async () => {
             }, {})
             .omit('min')
             .merge({
-              lastBlockCheck: balances.lastBlockCheck,
+              lastBlockCheck: balance.lastBlockCheck,
               lastTxs: _.chain(tx)
                 .thru(tx =>
                   [({txid: tx.hash, blockHeight: tx.block})]
