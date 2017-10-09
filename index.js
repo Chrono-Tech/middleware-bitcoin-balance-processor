@@ -5,6 +5,7 @@ const config = require('./config'),
   accountModel = require('./models/accountModel'),
   bunyan = require('bunyan'),
   _ = require('lodash'),
+  customNetworkRegistrator = require('./networks'),
   log = bunyan.createLogger({name: 'core.balanceProcessor'}),
   amqp = require('amqplib');
 
@@ -16,6 +17,8 @@ const config = require('./config'),
 
 mongoose.Promise = Promise;
 mongoose.connect(config.mongo.uri, {useMongoClient: true});
+
+customNetworkRegistrator(config.bitcoin.network);
 
 let init = async () => {
   let conn = await amqp.connect(config.rabbit.url);
