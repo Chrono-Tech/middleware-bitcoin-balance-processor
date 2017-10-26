@@ -63,8 +63,13 @@ let init = async () => {
           let tx = await fetchTXService(txHash);
 
           tx.inputs = await Promise.mapSeries(tx.vin, async vin => {
-            let tx = await fetchTXService(vin.txid);
-            return tx.vout[vin.vout];
+            if (vin.coinbase)
+              return {
+                value: _.get(tx, 'vout.0.value'),
+                addresses: null
+              };
+            let vinTx = await fetchTXService(vin.txid);
+            return vinTx.vout[vin.vout];
           });
 
           tx.outputs = tx.vout.map(v => ({
@@ -75,7 +80,7 @@ let init = async () => {
 
           for (let i = 0; i < tx.inputs.length; i++) {
             tx.inputs[i] = {
-              addresses: tx.inputs[i].scriptPubKey.addresses,
+              addresses: _.get(tx.inputs[i], 'scriptPubKey.addresses', null),
               prev_hash: tx.vin[i].txid,
               script: tx.inputs[i].scriptPubKey,
               value: Math.floor(tx.inputs[i].value * Math.pow(10, 8)),
@@ -156,8 +161,14 @@ let init = async () => {
         let tx = await fetchTXService(txHash);
 
         tx.inputs = await Promise.mapSeries(tx.vin, async vin => {
-          let tx = await fetchTXService(vin.txid);
-          return tx.vout[vin.vout];
+          if (vin.coinbase)
+            return {
+              value: _.get(tx, 'vout.0.value'),
+              addresses: null
+            };
+
+          let vinTx = await fetchTXService(vin.txid);
+          return vinTx.vout[vin.vout];
         });
 
         tx.outputs = tx.vout.map(v => ({
@@ -168,7 +179,7 @@ let init = async () => {
 
         for (let i = 0; i < tx.inputs.length; i++) {
           tx.inputs[i] = {
-            addresses: tx.inputs[i].scriptPubKey.addresses,
+            addresses: _.get(tx.inputs[i], 'scriptPubKey.addresses', null),
             prev_hash: tx.vin[i].txid,
             script: tx.inputs[i].scriptPubKey,
             value: Math.floor(tx.inputs[i].value * Math.pow(10, 8)),
