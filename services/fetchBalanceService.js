@@ -35,29 +35,45 @@ module.exports = async address => {
   let rawCoins = await new Promise((res, rej) => {
     ipcInstance.of[config.bitcoin.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
     ipcInstance.of[config.bitcoin.ipcName].emit('message', JSON.stringify({
-        method: 'getcoinsbyaddress',
-        params: [address]
-      })
+      method: 'getcoinsbyaddress',
+      params: [address]
+    })
     );
   });
 
   let height = await new Promise((res, rej) => {
     ipcInstance.of[config.bitcoin.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
     ipcInstance.of[config.bitcoin.ipcName].emit('message', JSON.stringify({
-        method: 'getblockcount',
-        params: []
-      })
+      method: 'getblockcount',
+      params: []
+    })
     );
   });
-
-  ipcInstance.disconnect(config.bitcoin.ipcName);
-
-  return {
-    balance: _.chain(rawCoins)
+  
+  let balances = {
+    confirmations0: _.chain(rawCoins)
       .map(coin => coin.value)
       .sum()
       .defaultTo(0)
       .value(),
+    confirmations3: _.chain(rawCoins)
+      .filter(c => c.height > -1 && height - c.height >= 3)
+      .map(coin => coin.value)
+      .sum()
+      .defaultTo(0)
+      .value(),
+    confirmations6: _.chain(rawCoins)
+      .filter(c => c.height > -1 && height - c.height >= 6)
+      .map(coin => coin.value)
+      .sum()
+      .defaultTo(0)
+      .value()
+  };
+
+  ipcInstance.disconnect(config.bitcoin.ipcName);
+
+  return {
+    balances: balances,
     lastBlockCheck: height
   };
 
