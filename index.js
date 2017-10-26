@@ -4,8 +4,8 @@ const config = require('./config'),
   fetchTXService = require('./services/fetchTXService'),
   accountModel = require('./models/accountModel'),
   bunyan = require('bunyan'),
+  Promise = require('bluebird'),
   _ = require('lodash'),
-  customNetworkRegistrator = require('./networks'),
   log = bunyan.createLogger({name: 'core.balanceProcessor'}),
   amqp = require('amqplib');
 
@@ -17,8 +17,6 @@ const config = require('./config'),
 
 mongoose.Promise = Promise;
 mongoose.connect(config.mongo.uri, {useMongoClient: true});
-
-customNetworkRegistrator(config.bitcoin.network);
 
 let init = async () => {
   let conn = await amqp.connect(config.rabbit.url);
@@ -53,7 +51,7 @@ let init = async () => {
       });
 
       for (let account of accounts) {
-        let balance = await fetchBalanceService(account.address);
+        let balances = await fetchBalanceService(account.address);
 
         let filteredLastTxs = _.filter(account.lastTxs, item => {
           let heightDiff = payload.block - item.blockHeight;
@@ -63,11 +61,26 @@ let init = async () => {
         for (let filteredLastTx of filteredLastTxs) {
           let txHash = filteredLastTx.txid;
           let tx = await fetchTXService(txHash);
-          tx.confirmations = payload.block - filteredLastTx.blockHeight;
+
+          tx.inputs = await Promise.mapSeries(tx.vin, async vin => {
+            let tx = await fetchTXService(vin.txid);
+            return tx.vout[vin.vout];
+          });
+
+          tx.outputs = tx.vout.map(v => ({
+            value: Math.floor(v.value * Math.pow(10, 8)),
+            scriptPubKey: v.scriptPubKey,
+            addresses: v.scriptPubKey.addresses
+          }));
 
           for (let i = 0; i < tx.inputs.length; i++) {
-            let txOut = await fetchTXService(tx.inputs[i].prevout.hash);
-            tx.inputs[i] = txOut.outputs[tx.inputs[i].prevout.index];
+            tx.inputs[i] = {
+              addresses: tx.inputs[i].scriptPubKey.addresses,
+              prev_hash: tx.vin[i].txid,
+              script: tx.inputs[i].scriptPubKey,
+              value: Math.floor(tx.inputs[i].value * Math.pow(10, 8)),
+              output_index: tx.vin[i].vout
+            };
           }
 
           tx.valueIn = _.chain(tx.inputs)
@@ -81,16 +94,19 @@ let init = async () => {
             .value();
 
           tx.fee = tx.valueIn - tx.valueOut;
+          tx = _.omit(tx, ['vin', 'vout', 'blockhash']);
+
+          tx.fee = tx.valueIn - tx.valueOut;
 
           let savedAccount = await accountModel.findOneAndUpdate({address: account.address}, {
             $set: _.chain([
-              {'balances.confirmations0': balance.balance, min: 0},
-              {'balances.confirmations3': balance.balance, min: 3},
-              {'balances.confirmations6': balance.balance, min: 6}
+              {'balances.confirmations0': balances.balances.confirmations0, min: 0},
+              {'balances.confirmations3': balances.balances.confirmations3, min: 3},
+              {'balances.confirmations6': balances.balances.confirmations6, min: 6}
             ])
               .transform((result, item) => {
                 if (tx.confirmations >= item.min)
-                  Object.assign(result, item)
+                  Object.assign(result, item);
               }, {})
               .omit('min')
               .value()
@@ -121,7 +137,7 @@ let init = async () => {
   channel.consume(`app_${config.rabbit.serviceName}.balance_processor.tx`, async (data) => {
     try {
       let payload = JSON.parse(data.content.toString());
-      let balance = await fetchBalanceService(payload.address);
+      let balances = await fetchBalanceService(payload.address);
 
       let account = await accountModel.findOne({address: payload.address});
 
@@ -139,20 +155,25 @@ let init = async () => {
 
         let tx = await fetchTXService(txHash);
 
-        if (_.find(tx.inputs, {prevout: {hash: '0000000000000000000000000000000000000000000000000000000000000000'}})) {
-          tx.inputs = [{
-            value: _.chain(tx.outputs)
-              .map(i => i.value)
-              .sum()
-              .value(),
-            script: tx.inputs[0],
-            address: null
-          }];
-        } else {
-          for (let i = 0; i < tx.inputs.length; i++) {
-            let txOut = await fetchTXService(tx.inputs[i].prevout.hash);
-            tx.inputs[i] = txOut.outputs[tx.inputs[i].prevout.index];
-          }
+        tx.inputs = await Promise.mapSeries(tx.vin, async vin => {
+          let tx = await fetchTXService(vin.txid);
+          return tx.vout[vin.vout];
+        });
+
+        tx.outputs = tx.vout.map(v => ({
+          value: Math.floor(v.value * Math.pow(10, 8)),
+          scriptPubKey: v.scriptPubKey,
+          addresses: v.scriptPubKey.addresses
+        }));
+
+        for (let i = 0; i < tx.inputs.length; i++) {
+          tx.inputs[i] = {
+            addresses: tx.inputs[i].scriptPubKey.addresses,
+            prev_hash: tx.vin[i].txid,
+            script: tx.inputs[i].scriptPubKey,
+            value: Math.floor(tx.inputs[i].value * Math.pow(10, 8)),
+            output_index: tx.vin[i].vout
+          };
         }
 
         tx.valueIn = _.chain(tx.inputs)
@@ -166,23 +187,24 @@ let init = async () => {
           .value();
 
         tx.fee = tx.valueIn - tx.valueOut;
+        tx = _.omit(tx, ['vin', 'vout', 'blockhash']);
 
         let savedAccount = await accountModel.findOneAndUpdate({
           address: payload.address,
-          lastBlockCheck: {$lte: balance.lastBlockCheck}
+          lastBlockCheck: {$lte: balances.lastBlockCheck}
         }, {
           $set: _.chain([
-            {'balances.confirmations0': balance.balance, min: 0},
-            {'balances.confirmations3': balance.balance, min: 3},
-            {'balances.confirmations6': balance.balance, min: 6}
+            {'balances.confirmations0': balances.balances.confirmations0, min: 0},
+            {'balances.confirmations3': balances.balances.confirmations3, min: 3},
+            {'balances.confirmations6': balances.balances.confirmations6, min: 6}
           ])
             .transform((result, item) => {
               if (tx.confirmations >= item.min)
-                Object.assign(result, item)
+                Object.assign(result, item);
             }, {})
             .omit('min')
             .merge({
-              lastBlockCheck: balance.lastBlockCheck,
+              lastBlockCheck: balances.lastBlockCheck,
               lastTxs: _.chain(tx)
                 .thru(tx =>
                   [({txid: tx.hash, blockHeight: tx.block})]

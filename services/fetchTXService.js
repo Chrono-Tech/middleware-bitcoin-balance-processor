@@ -1,6 +1,7 @@
 const Promise = require('bluebird'),
   ipc = require('node-ipc'),
   Tx = require('bcoin/lib/primitives/tx'),
+  Network = require('bcoin/lib/protocol/network'),
   config = require('../config');
 
 /**
@@ -42,7 +43,7 @@ module.exports = async hash => {
     ipcInstance.of[config.bitcoin.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
     ipcInstance.of[config.bitcoin.ipcName].emit('message', JSON.stringify({
         method: 'getrawtransaction',
-        params: [hash, 1]
+        params: [hash, true]
       })
     );
   });
@@ -64,12 +65,9 @@ module.exports = async hash => {
       );
     });
 
-
   ipcInstance.disconnect(config.bitcoin.ipcName);
 
-  let tx = Tx.fromRaw(rawTx.hex, 'hex').getJSON(config.bitcoin.network);
-  tx.block = rawTx.blockhash ? block.height: block + 1;
-  tx.confirmations = rawTx.confirmations;
+  rawTx.block = rawTx.blockhash ? block.height : block + 1;
 
-  return tx;
+  return rawTx;
 };
