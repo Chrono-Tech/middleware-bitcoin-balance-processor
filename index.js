@@ -120,7 +120,11 @@ let init = async () => {
 
           channel.publish('events', `${config.rabbit.serviceName}_balance.${payload.address}`, new Buffer(JSON.stringify({
             address: payload.address,
-            balances: savedAccount ? savedAccount.balances : changedBalances,
+            balances: {
+              confirmations0: savedAccount ? savedAccount.balances.confirmations0 : changedBalances['balances.confirmations0'],
+              confirmations3: savedAccount ? savedAccount.balances.confirmations3 : changedBalances['balances.confirmations3'],
+              confirmations6: savedAccount ? savedAccount.balances.confirmations6 : changedBalances['balances.confirmations6']
+            },
             tx: tx
           })));
         }
@@ -233,7 +237,11 @@ let init = async () => {
 
         channel.publish('events', `${config.rabbit.serviceName}_balance.${payload.address}`, new Buffer(JSON.stringify({
           address: payload.address,
-          balances: savedAccount ? savedAccount.balances : changedBalances,
+          balances: {
+            confirmations0: savedAccount ? savedAccount.balances.confirmations0 : changedBalances['balances.confirmations0'],
+            confirmations3: savedAccount ? savedAccount.balances.confirmations3 : changedBalances['balances.confirmations3'],
+            confirmations6: savedAccount ? savedAccount.balances.confirmations6 : changedBalances['balances.confirmations6']
+          },
           tx: tx
         })));
 
