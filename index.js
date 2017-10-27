@@ -81,10 +81,10 @@ let init = async () => {
           for (let i = 0; i < tx.inputs.length; i++) {
             tx.inputs[i] = {
               addresses: _.get(tx.inputs[i], 'scriptPubKey.addresses', null),
-              prev_hash: tx.vin[i].txid,
+              prev_hash: tx.vin[i].txid, //eslint-disable-line
               script: tx.inputs[i].scriptPubKey,
               value: Math.floor(tx.inputs[i].value * Math.pow(10, 8)),
-              output_index: tx.vin[i].vout
+              output_index: tx.vin[i].vout  //eslint-disable-line
             };
           }
 
@@ -180,10 +180,10 @@ let init = async () => {
         for (let i = 0; i < tx.inputs.length; i++) {
           tx.inputs[i] = {
             addresses: _.get(tx.inputs[i], 'scriptPubKey.addresses', null),
-            prev_hash: tx.vin[i].txid,
+            prev_hash: tx.vin[i].txid, //eslint-disable-line
             script: tx.inputs[i].scriptPubKey,
             value: Math.floor(tx.inputs[i].value * Math.pow(10, 8)),
-            output_index: tx.vin[i].vout
+            output_index: tx.vin[i].vout //eslint-disable-line
           };
         }
 
