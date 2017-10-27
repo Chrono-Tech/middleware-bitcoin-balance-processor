@@ -1,13 +1,11 @@
 const Promise = require('bluebird'),
   ipc = require('node-ipc'),
-  Tx = require('bcoin/lib/primitives/tx'),
-  Network = require('bcoin/lib/protocol/network'),
   config = require('../config');
 
 /**
  * @service
  * @description get utxos for a specified address
- * @param address - registered address
+ * @param hash - tx's hash (or txid)
  * @returns {Promise.<[{address: *,
  *     txid: *,
  *     scriptPubKey: *,
@@ -42,26 +40,26 @@ module.exports = async hash => {
   let rawTx = await new Promise((res, rej) => {
     ipcInstance.of[config.bitcoin.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
     ipcInstance.of[config.bitcoin.ipcName].emit('message', JSON.stringify({
-        method: 'getrawtransaction',
-        params: [hash, true]
-      })
+      method: 'getrawtransaction',
+      params: [hash, true]
+    })
     );
   });
 
   let block = rawTx.blockhash ? await new Promise((res, rej) => {
     ipcInstance.of[config.bitcoin.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
     ipcInstance.of[config.bitcoin.ipcName].emit('message', JSON.stringify({
-        method: 'getblockheader',
-        params: [rawTx.blockhash]
-      })
+      method: 'getblockheader',
+      params: [rawTx.blockhash]
+    })
     );
   }) :
     await new Promise((res, rej) => {
       ipcInstance.of[config.bitcoin.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
       ipcInstance.of[config.bitcoin.ipcName].emit('message', JSON.stringify({
-          method: 'getblockcount',
-          params: []
-        })
+        method: 'getblockcount',
+        params: []
+      })
       );
     });
 
