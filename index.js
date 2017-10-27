@@ -100,26 +100,27 @@ let init = async () => {
 
           tx.fee = tx.valueIn - tx.valueOut;
           tx = _.omit(tx, ['vin', 'vout', 'blockhash']);
-
           tx.fee = tx.valueIn - tx.valueOut;
 
+          let changedBalances = _.chain([
+            {'balances.confirmations0': balances.balances.confirmations0, min: 0},
+            {'balances.confirmations3': balances.balances.confirmations3, min: 3},
+            {'balances.confirmations6': balances.balances.confirmations6, min: 6}
+          ])
+            .transform((result, item) => {
+              if (tx.confirmations >= item.min)
+                Object.assign(result, item);
+            }, {})
+            .omit('min')
+            .value();
+
           let savedAccount = await accountModel.findOneAndUpdate({address: account.address}, {
-            $set: _.chain([
-              {'balances.confirmations0': balances.balances.confirmations0, min: 0},
-              {'balances.confirmations3': balances.balances.confirmations3, min: 3},
-              {'balances.confirmations6': balances.balances.confirmations6, min: 6}
-            ])
-              .transform((result, item) => {
-                if (tx.confirmations >= item.min)
-                  Object.assign(result, item);
-              }, {})
-              .omit('min')
-              .value()
+            $set: changedBalances
           }, {new: true});
 
           channel.publish('events', `${config.rabbit.serviceName}_balance.${payload.address}`, new Buffer(JSON.stringify({
             address: payload.address,
-            balances: savedAccount.balances,
+            balances: savedAccount ? savedAccount.balances : changedBalances,
             tx: tx
           })));
         }
@@ -200,20 +201,23 @@ let init = async () => {
         tx.fee = tx.valueIn - tx.valueOut;
         tx = _.omit(tx, ['vin', 'vout', 'blockhash']);
 
+        let changedBalances = _.chain([
+          {'balances.confirmations0': balances.balances.confirmations0, min: 0},
+          {'balances.confirmations3': balances.balances.confirmations3, min: 3},
+          {'balances.confirmations6': balances.balances.confirmations6, min: 6}
+        ])
+          .transform((result, item) => {
+            if (tx.confirmations >= item.min)
+              Object.assign(result, item);
+          }, {})
+          .omit('min')
+          .value();
+
         let savedAccount = await accountModel.findOneAndUpdate({
           address: payload.address,
           lastBlockCheck: {$lte: balances.lastBlockCheck}
         }, {
-          $set: _.chain([
-            {'balances.confirmations0': balances.balances.confirmations0, min: 0},
-            {'balances.confirmations3': balances.balances.confirmations3, min: 3},
-            {'balances.confirmations6': balances.balances.confirmations6, min: 6}
-          ])
-            .transform((result, item) => {
-              if (tx.confirmations >= item.min)
-                Object.assign(result, item);
-            }, {})
-            .omit('min')
+          $set: _.chain(changedBalances)
             .merge({
               lastBlockCheck: balances.lastBlockCheck,
               lastTxs: _.chain(tx)
@@ -229,7 +233,7 @@ let init = async () => {
 
         channel.publish('events', `${config.rabbit.serviceName}_balance.${payload.address}`, new Buffer(JSON.stringify({
           address: payload.address,
-          balances: savedAccount.balances,
+          balances: savedAccount ? savedAccount.balances : changedBalances,
           tx: tx
         })));
 
