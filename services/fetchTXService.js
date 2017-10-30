@@ -40,18 +40,18 @@ module.exports = async hash => {
   let rawTx = await new Promise((res, rej) => {
     ipcInstance.of[config.bitcoin.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
     ipcInstance.of[config.bitcoin.ipcName].emit('message', JSON.stringify({
-        method: 'getrawtransaction',
-        params: [hash, true]
-      })
+      method: 'getrawtransaction',
+      params: [hash, true]
+    })
     );
   });
 
   let block = rawTx.blockhash ? await new Promise((res, rej) => {
     ipcInstance.of[config.bitcoin.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
     ipcInstance.of[config.bitcoin.ipcName].emit('message', JSON.stringify({
-        method: 'getblockheader',
-        params: [rawTx.blockhash]
-      })
+      method: 'getblockheader',
+      params: [rawTx.blockhash]
+    })
     );
   }) : -1;
 

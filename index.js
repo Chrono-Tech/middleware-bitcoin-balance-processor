@@ -67,12 +67,17 @@ let init = async () => {
       for (let account of accounts) {
         let balances = await fetchBalanceService(account.address);
 
-        let filteredLastTxs = _.filter(account.lastTxs, item => {
-          let heightDiff = payload.block - item.blockHeight;
-          return heightDiff === 3 || heightDiff === 6;
-        });
+        let txs = await Promise.mapSeries(account.lastTxs, tx =>
+          fetchTXService(tx.txid)
+            .catch(() => null)
+        );
 
-        for (let filteredLastTx of filteredLastTxs) {
+        let filteredTxs = _.chain(txs)
+          .compact()
+          .filter(tx => tx.confirmations === 3 || tx.confirmations === 6)
+          .value();
+
+        for (let filteredLastTx of filteredTxs) {
           try {
             let txHash = filteredLastTx.txid;
             let tx = await fetchTXService(txHash);
