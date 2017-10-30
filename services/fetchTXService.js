@@ -4,7 +4,7 @@ const Promise = require('bluebird'),
 
 /**
  * @service
- * @description get utxos for a specified address
+ * @description get raw Tx by its hash
  * @param hash - tx's hash (or txid)
  * @returns {Promise.<[{address: *,
  *     txid: *,
@@ -40,32 +40,24 @@ module.exports = async hash => {
   let rawTx = await new Promise((res, rej) => {
     ipcInstance.of[config.bitcoin.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
     ipcInstance.of[config.bitcoin.ipcName].emit('message', JSON.stringify({
-      method: 'getrawtransaction',
-      params: [hash, true]
-    })
+        method: 'getrawtransaction',
+        params: [hash, true]
+      })
     );
   });
 
   let block = rawTx.blockhash ? await new Promise((res, rej) => {
     ipcInstance.of[config.bitcoin.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
     ipcInstance.of[config.bitcoin.ipcName].emit('message', JSON.stringify({
-      method: 'getblockheader',
-      params: [rawTx.blockhash]
-    })
-    );
-  }) :
-    await new Promise((res, rej) => {
-      ipcInstance.of[config.bitcoin.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
-      ipcInstance.of[config.bitcoin.ipcName].emit('message', JSON.stringify({
-        method: 'getblockcount',
-        params: []
+        method: 'getblockheader',
+        params: [rawTx.blockhash]
       })
-      );
-    });
+    );
+  }) : -1;
 
   ipcInstance.disconnect(config.bitcoin.ipcName);
 
-  rawTx.block = rawTx.blockhash ? block.height : block + 1;
+  rawTx.block = rawTx.blockhash ? block.height : block;
 
   return rawTx;
 };
