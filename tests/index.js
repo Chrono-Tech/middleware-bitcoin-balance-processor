@@ -1,14 +1,15 @@
 require('dotenv/config');
 
 const config = require('../config'),
-  Network = require('bcoin/lib/protocol/network'),
-  bcoin = require('bcoin'),
   expect = require('chai').expect,
   accountModel = require('../models/accountModel'),
   ipcExec = require('./helpers/ipcExec'),
   _ = require('lodash'),
+  Network = require('bcoin/lib/protocol/network'),
+  bcoin = require('bcoin'),
+  SockJS = require('sockjs-client'),
+  Stomp = require('webstomp-client'),
   Promise = require('bluebird'),
-  Coin = require('bcoin/lib/primitives/coin'),
   ctx = {
     network: null,
     accounts: []
@@ -21,6 +22,8 @@ describe('core/balanceProcessor', function () {
 
   before(async () => {
 
+    let ws = new SockJS('http://localhost:15674/stomp');
+    ctx.stompClient = Stomp.over(ws, {heartbeat: false, debug: false});
     ctx.network = Network.get('regtest');
 
     let keyPair = bcoin.hd.generate(ctx.network);
@@ -29,8 +32,11 @@ describe('core/balanceProcessor', function () {
     let keyPair4 = bcoin.hd.generate(ctx.network);
 
     ctx.accounts.push(keyPair, keyPair2, keyPair3, keyPair4);
-
     mongoose.connect(config.mongo.uri, {useMongoClient: true});
+    await new Promise(res =>
+      ctx.stompClient.connect('guest', 'guest', res)
+    );
+
   });
 
   after(() => {
@@ -90,7 +96,7 @@ describe('core/balanceProcessor', function () {
 
     let inputCoins = _.chain(coins)
       .transform((result, coin) => {
-        result.coins.push(Coin.fromJSON(coin));
+        result.coins.push(bcoin.coin.fromJSON(coin));
         result.amount += coin.value;
       }, {amount: 0, coins: []})
       .value();
@@ -114,13 +120,39 @@ describe('core/balanceProcessor', function () {
 
     mtx.sign(keyring);
 
-    const tx = mtx.toTX();
-    return await ipcExec('sendrawtransaction', [tx.toRaw().toString('hex')]);
+    ctx.tx = mtx.toTX();
+    return await ipcExec('sendrawtransaction', [ctx.tx.toRaw().toString('hex')]);
   });
 
-  it('generate some coins for accountB', async () => {
-    let keyring = new bcoin.keyring(ctx.accounts[1].privateKey, ctx.network);
-    return await ipcExec('generatetoaddress', [10, keyring.getAddress().toString()])
+  it('generate some coins for accountB and validate balance changes via webstomp', async () => {
+
+    let keyring = new bcoin.keyring(ctx.accounts[0].privateKey, ctx.network);
+    let keyring2 = new bcoin.keyring(ctx.accounts[1].privateKey, ctx.network);
+
+    await new Promise(res => {
+      let confirmations = 0;
+      ctx.stompClient.subscribe(`/exchange/events/app_bitcoin_balance.${keyring.getAddress().toString()}`, function (message) {
+        message = JSON.parse(message.body);
+
+        if (message.tx.txid !== ctx.tx.txid())
+          return;
+
+        if (message.tx.confirmations === 1 || message.tx.confirmations === 3 || message.tx.confirmations === 6)
+          confirmations++;
+
+        if (confirmations === 3)
+          res();
+
+      });
+
+      let timeInterval = setInterval(function () {
+        ipcExec('generatetoaddress', [1, keyring2.getAddress().toString()]);
+        if (confirmations === 3)
+          clearInterval(timeInterval);
+      }, 5000);
+
+    });
+
   });
 
   it('validate balance for all accounts in mongodb', async () => {
