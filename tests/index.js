@@ -131,7 +131,7 @@ describe('core/balanceProcessor', function () {
 
     await new Promise(res => {
       let confirmations = 0;
-      ctx.stompClient.subscribe(`/exchange/events/app_bitcoin_balance.${keyring.getAddress().toString()}`, function (message) {
+      ctx.stompClient.subscribe(`/exchange/events/${config.rabbit.serviceName}_balance.${keyring.getAddress().toString()}`, function (message) {
         message = JSON.parse(message.body);
 
         if (message.tx.txid !== ctx.tx.txid())
