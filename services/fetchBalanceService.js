@@ -17,7 +17,7 @@ module.exports = async address => {
 
   Object.assign(ipcInstance.config, {
     id: Date.now(),
-    socketRoot: config.bitcoin.ipcPath,
+    socketRoot: config.node.ipcPath,
     retry: 1500,
     sync: true,
     silent: true,
@@ -26,15 +26,15 @@ module.exports = async address => {
   });
 
   await new Promise((res, rej) => {
-    ipcInstance.connectTo(config.bitcoin.ipcName, () => {
-      ipcInstance.of[config.bitcoin.ipcName].on('connect', res);
-      ipcInstance.of[config.bitcoin.ipcName].on('error', rej);
+    ipcInstance.connectTo(config.node.ipcName, () => {
+      ipcInstance.of[config.node.ipcName].on('connect', res);
+      ipcInstance.of[config.node.ipcName].on('error', rej);
     });
   });
 
   let rawCoins = await new Promise((res, rej) => {
-    ipcInstance.of[config.bitcoin.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
-    ipcInstance.of[config.bitcoin.ipcName].emit('message', JSON.stringify({
+    ipcInstance.of[config.node.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
+    ipcInstance.of[config.node.ipcName].emit('message', JSON.stringify({
       method: 'getcoinsbyaddress',
       params: [address]
     })
@@ -42,8 +42,8 @@ module.exports = async address => {
   });
 
   let height = await new Promise((res, rej) => {
-    ipcInstance.of[config.bitcoin.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
-    ipcInstance.of[config.bitcoin.ipcName].emit('message', JSON.stringify({
+    ipcInstance.of[config.node.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
+    ipcInstance.of[config.node.ipcName].emit('message', JSON.stringify({
       method: 'getblockcount',
       params: []
     })
@@ -70,7 +70,7 @@ module.exports = async address => {
       .value()
   };
 
-  ipcInstance.disconnect(config.bitcoin.ipcName);
+  ipcInstance.disconnect(config.node.ipcName);
 
   return {
     balances: balances,
