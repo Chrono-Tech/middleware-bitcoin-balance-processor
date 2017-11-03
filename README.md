@@ -1,4 +1,4 @@
-# middleware-eth-balance-processor [![Build Status](https://travis-ci.org/ChronoBank/middleware-bitcoin-balance-processor.svg?branch=master)](https://travis-ci.org/ChronoBank/middleware-bitcoin-balance-processor)
+# middleware-bitcoin-balance-processor [![Build Status](https://travis-ci.org/ChronoBank/middleware-bitcoin-balance-processor.svg?branch=master)](https://travis-ci.org/ChronoBank/middleware-bitcoin-balance-processor)
 
 Middleware service for handling user balance
 
