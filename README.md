@@ -31,6 +31,7 @@ Below is the example configuration:
 MONGO_URI=mongodb://localhost:27017/data
 MONGO_COLLECTION_PREFIX=bitcoin
 RABBIT_URI=amqp://localhost:5672
+RABBIT_SERVICE_NAME=app_bitcoin
 IPC_NAME=bitcoin
 IPC_PATH=/tmp/
 ```
@@ -42,6 +43,7 @@ The options are presented below:
 | MONGO_URI   | the URI string for mongo connection
 | MONGO_COLLECTION_PREFIX   | the prefix name for all created collections, like for Account model - it will be called (in our case) BitcoinAccount
 | RABBIT_URI   | rabbitmq URI connection string
+| RABBIT_SERVICE_NAME   | rabbitmq queues prefix
 | IPC_NAME   | ipc file name
 | IPC_PATH   | directory, where to store ipc file (you can skip this option on windows)
 
