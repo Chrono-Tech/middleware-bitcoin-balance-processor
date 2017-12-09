@@ -1,8 +1,8 @@
-# middleware-eth-balance-processor [![Build Status](https://travis-ci.org/ChronoBank/middleware-bitcoin-balance-processor.svg?branch=master)](https://travis-ci.org/ChronoBank/middleware-bitcoin-balance-processor)
+# middleware-bitcoin-balance-processor [![Build Status](https://travis-ci.org/ChronoBank/middleware-bitcoin-balance-processor.svg?branch=master)](https://travis-ci.org/ChronoBank/middleware-bitcoin-balance-processor)
 
 Middleware service for handling user balance
 
-###Installation
+### Installation
 
 This module is a part of middleware services. You can install it in 2 ways:
 
@@ -28,10 +28,12 @@ To apply your configuration, create a .env file in root folder of repo (in case 
 Below is the example configuration:
 
 ```
-MONGO_URI=mongodb://localhost:32772/data
-RABBIT_URI=amqp://localhost:32769
-BITCOIN_IPC=bitcoin
-BITCOIN_IPC_PATH=/tmp/
+MONGO_URI=mongodb://localhost:27017/data
+MONGO_COLLECTION_PREFIX=bitcoin
+RABBIT_URI=amqp://localhost:5672
+RABBIT_SERVICE_NAME=app_bitcoin
+IPC_NAME=bitcoin
+IPC_PATH=/tmp/
 ```
 
 The options are presented below:
@@ -39,9 +41,11 @@ The options are presented below:
 | name | description|
 | ------ | ------ |
 | MONGO_URI   | the URI string for mongo connection
+| MONGO_COLLECTION_PREFIX   | the prefix name for all created collections, like for Account model - it will be called (in our case) BitcoinAccount
 | RABBIT_URI   | rabbitmq URI connection string
-| BITCOIN_IPC   | ipc file name
-| BITCOIN_IPC_PATH   | directory, where to store ipc file (you can skip this option on windows)
+| RABBIT_SERVICE_NAME   | rabbitmq queues prefix
+| IPC_NAME   | ipc file name
+| IPC_PATH   | directory, where to store ipc file (you can skip this option on windows)
 
 License
 ----
