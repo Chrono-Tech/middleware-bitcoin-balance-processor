@@ -102,9 +102,9 @@ let init = async () => {
             channel.publish('events', `${config.rabbit.serviceName}_balance.${account.address}`, new Buffer(JSON.stringify({
               address: account.address,
               balances: {
-                confirmations0: savedAccount ? savedAccount.balances.confirmations0 : changedBalances['balances.confirmations0'],
-                confirmations3: savedAccount ? savedAccount.balances.confirmations3 : changedBalances['balances.confirmations3'],
-                confirmations6: savedAccount ? savedAccount.balances.confirmations6 : changedBalances['balances.confirmations6']
+                confirmations0: _.get(savedAccount, 'balances.confirmations0', changedBalances['balances.confirmations0']),
+                confirmations3: _.get(savedAccount, 'balances.confirmations3', changedBalances['balances.confirmations3']),
+                confirmations6: _.get(savedAccount, 'balances.confirmations6', changedBalances['balances.confirmations6']),
               },
               tx: tx
             })));
@@ -148,7 +148,6 @@ let init = async () => {
         try {
           let tx = await fetchTXService(txHash);
           tx = await transformTx(tx);
-
           let changedBalances = _.chain([
             {'balances.confirmations0': balances.balances.confirmations0, min: 0},
             {'balances.confirmations3': balances.balances.confirmations3, min: 3},
@@ -165,25 +164,24 @@ let init = async () => {
             address: payload.address,
             lastBlockCheck: {$lte: balances.lastBlockCheck}
           }, {
-            $set: tx.block === -1 ? {} :
-              _.merge({}, changedBalances, {
-                lastBlockCheck: balances.lastBlockCheck,
-                lastTxs: _.chain(tx)
-                  .thru(tx =>
-                    [({txid: tx.hash, blockHeight: tx.block})]
-                  )
-                  .union(_.get(account, 'lastTxs', []))
-                  .uniqBy('txid')
-                  .value()
-              })
+            $set: _.merge({}, changedBalances, {
+              lastBlockCheck: balances.lastBlockCheck,
+              lastTxs: _.chain(tx)
+                .thru(tx =>
+                  [({txid: tx.txid, blockHeight: tx.block})]
+                )
+                .union(_.get(account, 'lastTxs', []))
+                .uniqBy('txid')
+                .value()
+            })
           }, {new: true});
 
           channel.publish('events', `${config.rabbit.serviceName}_balance.${payload.address}`, new Buffer(JSON.stringify({
             address: payload.address,
             balances: {
-              confirmations0: savedAccount && tx.block !== -1 ? savedAccount.balances.confirmations0 : changedBalances['balances.confirmations0'],
-              confirmations3: savedAccount && tx.block !== -1 ? savedAccount.balances.confirmations3 : changedBalances['balances.confirmations3'],
-              confirmations6: savedAccount && tx.block !== -1 ? savedAccount.balances.confirmations6 : changedBalances['balances.confirmations6']
+              confirmations0: _.get(savedAccount, 'balances.confirmations0', changedBalances['balances.confirmations0']),
+              confirmations3: _.get(savedAccount, 'balances.confirmations3', changedBalances['balances.confirmations3']),
+              confirmations6: _.get(savedAccount, 'balances.confirmations6', changedBalances['balances.confirmations6'])
             },
             tx: tx
           })));
