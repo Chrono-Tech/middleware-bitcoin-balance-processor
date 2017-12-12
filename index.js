@@ -168,7 +168,7 @@ let init = async () => {
               lastBlockCheck: balances.lastBlockCheck,
               lastTxs: _.chain(tx)
                 .thru(tx =>
-                  [({txid: tx.txid, blockHeight: tx.block})]
+                  [({txid: tx.txid, blockHeight: tx.block === -1 ? balances.lastBlockCheck : tx.block})]
                 )
                 .union(_.get(account, 'lastTxs', []))
                 .uniqBy('txid')
