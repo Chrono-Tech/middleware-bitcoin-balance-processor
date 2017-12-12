@@ -97,7 +97,7 @@ let init = async () => {
 
             let savedAccount = await accountModel.findOneAndUpdate({address: account.address}, {
               $set: changedBalances
-            }, {new: true, upsert: true});
+            }, {new: true});
 
             channel.publish('events', `${config.rabbit.serviceName}_balance.${account.address}`, new Buffer(JSON.stringify({
               address: account.address,
@@ -174,7 +174,7 @@ let init = async () => {
                 .uniqBy('txid')
                 .value()
             })
-          }, {new: true, upsert: true});
+          }, {new: true});
 
           channel.publish('events', `${config.rabbit.serviceName}_balance.${payload.address}`, new Buffer(JSON.stringify({
             address: payload.address,
