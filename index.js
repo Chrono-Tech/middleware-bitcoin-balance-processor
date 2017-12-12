@@ -97,7 +97,7 @@ let init = async () => {
 
             let savedAccount = await accountModel.findOneAndUpdate({address: account.address}, {
               $set: changedBalances
-            }, {new: true, upsert: true});
+            }, {new: true});
 
             channel.publish('events', `${config.rabbit.serviceName}_balance.${account.address}`, new Buffer(JSON.stringify({
               address: account.address,
@@ -168,13 +168,13 @@ let init = async () => {
               lastBlockCheck: balances.lastBlockCheck,
               lastTxs: _.chain(tx)
                 .thru(tx =>
-                  [({txid: tx.txid, blockHeight: tx.block})]
+                  [({txid: tx.txid, blockHeight: tx.block === -1 ? balances.lastBlockCheck : tx.block})]
                 )
                 .union(_.get(account, 'lastTxs', []))
                 .uniqBy('txid')
                 .value()
             })
-          }, {new: true, upsert: true});
+          }, {new: true});
 
           channel.publish('events', `${config.rabbit.serviceName}_balance.${payload.address}`, new Buffer(JSON.stringify({
             address: payload.address,
