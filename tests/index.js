@@ -7,7 +7,7 @@ const config = require('../config'),
   _ = require('lodash'),
   Network = require('bcoin/lib/protocol/network'),
   bcoin = require('bcoin'),
-  SockJS = require('sockjs-client'),
+  WebSocket = require('ws'),
   Stomp = require('webstomp-client'),
   Promise = require('bluebird'),
   ctx = {
@@ -16,13 +16,11 @@ const config = require('../config'),
   },
   mongoose = require('mongoose');
 
-mongoose.Promise = Promise;
-
 describe('core/balanceProcessor', function () {
 
   before(async () => {
 
-    let ws = new SockJS('http://localhost:15674/stomp');
+    let ws = new WebSocket('ws://localhost:15674/ws');
     ctx.stompClient = Stomp.over(ws, {heartbeat: false, debug: false});
     ctx.network = Network.get('regtest');
 
@@ -32,7 +30,8 @@ describe('core/balanceProcessor', function () {
     let keyPair4 = bcoin.hd.generate(ctx.network);
 
     ctx.accounts.push(keyPair, keyPair2, keyPair3, keyPair4);
-    mongoose.connect(config.mongo.uri, {useMongoClient: true});
+    mongoose.Promise = Promise;
+    mongoose.connect(config.mongo.accounts.uri, {useMongoClient: true});
     await new Promise(res =>
       ctx.stompClient.connect('guest', 'guest', res)
     );
