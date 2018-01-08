@@ -3,6 +3,27 @@ const Promise = require('bluebird'),
   config = require('../config'),
   _ = require('lodash');
 
+let countPositive = (txs, address) => {
+  return _.chain(txs)
+    .map(tx => tx.outputs)
+    .flattenDeep()
+    .filter(output => output.address === address)
+    .map(output => output.value)
+    .sum()
+    .value();
+};
+
+let countNegative = (txs, address) => {
+  return _.chain(txs)
+    .map(tx => tx.inputs)
+    .flattenDeep()
+    .filter(input => _.get(input, 'coin.address') === address)
+    .map(input => input.coin.value)
+    .sum()
+    .value();
+
+};
+
 /**
  * @service
  * @description get balances for an address
@@ -32,40 +53,43 @@ module.exports = async address => {
     });
   });
 
-  let rawCoins = await new Promise((res, rej) => {
-    ipcInstance.of[config.node.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
-    ipcInstance.of[config.node.ipcName].emit('message', JSON.stringify({
-      method: 'getcoinsbyaddress',
-      params: [address]
-    })
-    );
-  });
-
   let height = await new Promise((res, rej) => {
     ipcInstance.of[config.node.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
     ipcInstance.of[config.node.ipcName].emit('message', JSON.stringify({
-      method: 'getblockcount',
-      params: []
-    })
+        method: 'getblockcount',
+        params: []
+      })
     );
   });
-  
+
+  let txs = await new Promise((res, rej) => {
+    ipcInstance.of[config.node.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
+    ipcInstance.of[config.node.ipcName].emit('message', JSON.stringify({
+        method: 'gettxbyaddress',
+        params: [address]
+      })
+    );
+  });
+
   let balances = {
-    confirmations0: _.chain(rawCoins)
-      .map(coin => coin.value)
-      .sum()
+    confirmations0: _.chain()
+      .thru(() => {
+        return countPositive(txs, address) - countNegative(txs, address);
+      })
       .defaultTo(0)
       .value(),
-    confirmations3: _.chain(rawCoins)
-      .filter(c => c.height > -1 && height - c.height >= 3)
-      .map(coin => coin.value)
-      .sum()
+    confirmations3: _.chain()
+      .thru(() => {
+        let filteredTxs = _.filter(txs, tx => tx.height > 0 && (height - (tx.height - 1)) > 2);
+        return countPositive(filteredTxs, address) - countNegative(filteredTxs, address);
+      })
       .defaultTo(0)
       .value(),
-    confirmations6: _.chain(rawCoins)
-      .filter(c => c.height > -1 && height - c.height >= 6)
-      .map(coin => coin.value)
-      .sum()
+    confirmations6: _.chain()
+      .thru(() => {
+        let filteredTxs = _.filter(txs, tx => tx.height > 0 && (height - (tx.height - 1)) > 5);
+        return countPositive(filteredTxs, address) - countNegative(filteredTxs, address);
+      })
       .defaultTo(0)
       .value()
   };

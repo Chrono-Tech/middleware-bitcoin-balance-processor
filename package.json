@@ -20,12 +20,12 @@
     "eslint-plugin-chronobank": "github:chronobank/eslint-plugin-chronobank",
     "middleware-bitcoin-blockprocessor": "github:chronobank/middleware-bitcoin-blockprocessor",
     "mocha": "^3.5.0",
-    "sockjs-client": "^1.1.4",
-    "webstomp-client": "^1.2.0"
+    "webstomp-client": "^1.2.0",
+    "ws": "^3.3.3"
   },
   "scripts": {
     "lint": "node ./node_modules/eslint/bin/eslint.js -c .eslintrc.js --ext .js --fix --ignore-path .eslintignore .",
-    "test": "node ./node_modules/mocha/bin/mocha -t 90000 tests/index.js"
+    "test": "node ./node_modules/mocha/bin/mocha -t 300000 tests/index.js"
   },
   "author": "",
   "license": "ISC",

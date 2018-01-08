@@ -7,7 +7,7 @@ const config = require('../config'),
   _ = require('lodash'),
   Network = require('bcoin/lib/protocol/network'),
   bcoin = require('bcoin'),
-  SockJS = require('sockjs-client'),
+  WebSocket = require('ws'),
   Stomp = require('webstomp-client'),
   Promise = require('bluebird'),
   ctx = {
@@ -16,13 +16,11 @@ const config = require('../config'),
   },
   mongoose = require('mongoose');
 
-mongoose.Promise = Promise;
-
 describe('core/balanceProcessor', function () {
 
   before(async () => {
 
-    let ws = new SockJS('http://localhost:15674/stomp');
+    let ws = new WebSocket('ws://localhost:15674/ws');
     ctx.stompClient = Stomp.over(ws, {heartbeat: false, debug: false});
     ctx.network = Network.get('regtest');
 
@@ -32,7 +30,8 @@ describe('core/balanceProcessor', function () {
     let keyPair4 = bcoin.hd.generate(ctx.network);
 
     ctx.accounts.push(keyPair, keyPair2, keyPair3, keyPair4);
-    mongoose.connect(config.mongo.uri, {useMongoClient: true});
+    mongoose.Promise = Promise;
+    mongoose.connect(config.mongo.accounts.uri, {useMongoClient: true});
     await new Promise(res =>
       ctx.stompClient.connect('guest', 'guest', res)
     );
@@ -87,7 +86,7 @@ describe('core/balanceProcessor', function () {
     expect(account.balances.confirmations0).to.be.gt(0);
   });
 
-  it('send coins to accountB and accountC', async () => {
+  it('prepare tx for transferring coins from accountB and accountC', async () => {
 
     let keyring = new bcoin.keyring(ctx.accounts[0].privateKey, ctx.network);
     let keyring2 = new bcoin.keyring(ctx.accounts[1].privateKey, ctx.network);
@@ -121,7 +120,6 @@ describe('core/balanceProcessor', function () {
     mtx.sign(keyring);
 
     ctx.tx = mtx.toTX();
-    return await ipcExec('sendrawtransaction', [ctx.tx.toRaw().toString('hex')]);
   });
 
   it('generate some coins for accountB and validate balance changes via webstomp', async () => {
@@ -137,7 +135,7 @@ describe('core/balanceProcessor', function () {
         if (message.tx.txid !== ctx.tx.txid())
           return;
 
-        if (message.tx.confirmations === 1 || message.tx.confirmations === 3 || message.tx.confirmations === 6)
+        if (message.tx.confirmations === 0 || message.tx.confirmations === 1 || message.tx.confirmations === 3 || message.tx.confirmations === 6)
           confirmations++;
 
         if (confirmations === 3)
@@ -145,11 +143,14 @@ describe('core/balanceProcessor', function () {
 
       });
 
-      let timeInterval = setInterval(function () {
-        ipcExec('generatetoaddress', [1, keyring2.getAddress().toString()]);
-        if (confirmations === 3)
-          clearInterval(timeInterval);
-      }, 5000);
+      ipcExec('sendrawtransaction', [ctx.tx.toRaw().toString('hex')])
+        .then(() => {
+          let timeInterval = setInterval(function () {
+            ipcExec('generatetoaddress', [1, keyring2.getAddress().toString()]);
+            if (confirmations === 3)
+              clearInterval(timeInterval);
+          }, 2000);
+        });
 
     });
 
