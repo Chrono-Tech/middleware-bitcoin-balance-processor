@@ -1,5 +1,6 @@
 const Promise = require('bluebird'),
   ipc = require('node-ipc'),
+  ipcExec = require('../utils/ipcExec'),
   config = require('../config'),
   _ = require('lodash');
 
@@ -34,67 +35,35 @@ let countNegative = (txs, address) => {
 
 module.exports = async address => {
 
-  const ipcInstance = new ipc.IPC;
+  let height = await ipcExec('getblockcount', []);
 
-  Object.assign(ipcInstance.config, {
-    id: Date.now(),
-    socketRoot: config.node.ipcPath,
-    retry: 1500,
-    sync: true,
-    silent: true,
-    unlink: false,
-    maxRetries: 3
-  });
+  let txsCoins = await ipcExec('getcoinsbyaddress', [address]);
 
-  await new Promise((res, rej) => {
-    ipcInstance.connectTo(config.node.ipcName, () => {
-      ipcInstance.of[config.node.ipcName].on('connect', res);
-      ipcInstance.of[config.node.ipcName].on('error', rej);
-    });
-  });
+  let lastTxs = await ipcExec('getblockrangetxbyaddress', [address, 6]);
 
-  let height = await new Promise((res, rej) => {
-    ipcInstance.of[config.node.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
-    ipcInstance.of[config.node.ipcName].emit('message', JSON.stringify({
-        method: 'getblockcount',
-        params: []
-      })
-    );
-  });
-
-  let txs = await new Promise((res, rej) => {
-    ipcInstance.of[config.node.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
-    ipcInstance.of[config.node.ipcName].emit('message', JSON.stringify({
-        method: 'gettxbyaddress',
-        params: [address]
-      })
-    );
-  });
+  let balance0 = _.chain(txsCoins)
+    .map(coin => coin.value)
+    .sum()
+    .defaultTo(0)
+    .value();
 
   let balances = {
-    confirmations0: _.chain()
-      .thru(() => {
-        return countPositive(txs, address) - countNegative(txs, address);
-      })
-      .defaultTo(0)
-      .value(),
+    confirmations0: balance0,
     confirmations3: _.chain()
       .thru(() => {
-        let filteredTxs = _.filter(txs, tx => tx.height > 0 && (height - (tx.height - 1)) > 2);
-        return countPositive(filteredTxs, address) - countNegative(filteredTxs, address);
+        let filteredTxs = _.filter(lastTxs, tx => tx.confirmations < 3);
+        return balance0 - countPositive(filteredTxs, address) + countNegative(filteredTxs, address);
       })
-      .defaultTo(0)
       .value(),
     confirmations6: _.chain()
       .thru(() => {
-        let filteredTxs = _.filter(txs, tx => tx.height > 0 && (height - (tx.height - 1)) > 5);
-        return countPositive(filteredTxs, address) - countNegative(filteredTxs, address);
+        let filteredTxs = _.filter(lastTxs, tx => tx.confirmations < 6);
+        return countNegative(filteredTxs, address) - countPositive(filteredTxs, address);
       })
       .defaultTo(0)
+      .add(balance0)
       .value()
   };
-
-  ipcInstance.disconnect(config.node.ipcName);
 
   return {
     balances: balances,
