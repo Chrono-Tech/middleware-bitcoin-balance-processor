@@ -1,9 +1,7 @@
 const config = require('./config'),
   mongoose = require('mongoose'),
-  fetchBalanceService = require('./services/fetchBalanceService'),
   updateBalanceFromBlockService = require('./services/updateBalanceFromBlockService'),
   updateBalanceFromTxService = require('./services/updateBalanceFromTxService'),
-  accountModel = require('./models/accountModel'),
   bunyan = require('bunyan'),
   Promise = require('bluebird'),
   _ = require('lodash'),
@@ -47,22 +45,12 @@ let init = async () => {
     channel = await conn.createChannel();
   }
 
-  /*
-   try {
-   await channel.assertQueue(`app_${config.rabbit.serviceName}.balance_processor.block`);
-   await channel.bindQueue(`app_${config.rabbit.serviceName}.balance_processor.block`, 'events', `${config.rabbit.serviceName}_block`);
-   } catch (e) {
-   log.error(e);
-   channel = await conn.createChannel();
-   }
-   */
-
   channel.prefetch(2);
-
   channel.consume(`app_${config.rabbit.serviceName}.balance_processor`, async data => {
 
     try {
       let payload = JSON.parse(data.content.toString());
+
       let updates = payload.txs ?
         [await updateBalanceFromTxService(payload.address, payload.block, payload.txs)] :
         await updateBalanceFromBlockService(payload.block);

@@ -135,10 +135,10 @@ describe('core/balanceProcessor', function () {
         if (message.tx.txid !== ctx.tx.txid())
           return;
 
-        if (message.tx.confirmations === 0 || message.tx.confirmations === 1 || message.tx.confirmations === 3 || message.tx.confirmations === 6)
+        if (message.tx.confirmations === 0 || message.tx.confirmations === 6)
           confirmations++;
 
-        if (confirmations === 3)
+        if (confirmations === 2)
           res();
 
       });
@@ -146,8 +146,8 @@ describe('core/balanceProcessor', function () {
       ipcExec('sendrawtransaction', [ctx.tx.toRaw().toString('hex')])
         .then(() => {
           let timeInterval = setInterval(function () {
-            ipcExec('generatetoaddress', [1, keyring2.getAddress().toString()]);
-            if (confirmations === 3)
+            ipcExec('generatetoaddress', [6, keyring2.getAddress().toString()]);
+            if (confirmations === 2)
               clearInterval(timeInterval);
           }, 2000);
         });

@@ -1,7 +1,4 @@
-const Promise = require('bluebird'),
-  ipc = require('node-ipc'),
-  ipcExec = require('../utils/ipcExec'),
-  config = require('../config'),
+const ipcExec = require('../utils/ipcExec'),
   _ = require('lodash');
 
 let countPositive = (txs, address) => {
