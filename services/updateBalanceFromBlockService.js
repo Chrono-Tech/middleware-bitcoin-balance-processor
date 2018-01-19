@@ -12,31 +12,24 @@ module.exports = async (blockHeight) => {
     lastBlockCheck: {$lt: blockHeight}
   });
 
+  let mempool = await ipcExec('getrawmempool', [false]);
+  let blocks = await Promise.mapSeries(_.map(new Array(6), (item, iter) => blockHeight - iter), height =>
+    ipcExec('getblockbyheight', [height])
+  );
+
   let items = await Promise.mapSeries(accounts, async account => {
 
-    let txs = await Promise.map(account.lastTxs, tx =>
-      ipcExec('getrawtransaction', [tx, true])
-        .catch(() => null)
-    );
+    let filteredTxs3 = _.intersection(blocks[2].tx, account.lastTxs);
+    let filteredTxs6 = _.intersection(blocks[5].tx, account.lastTxs);
 
-    let filteredTxs = _.chain(txs)
-      .compact()
-      .filter(tx => tx.confirmations === 3 || tx.confirmations === 6)
-      .value();
-
-    if(!filteredTxs)
+    if (!filteredTxs3 && !filteredTxs6)
       return;
 
-    let highestConfirmation = _.chain(filteredTxs)
-      .sortBy('tx.confirmations')
-      .last()
-      .value();
+    let balances = await fetchBalanceService(account.address, filteredTxs6 ? 6 : 3);
 
-
-    let balances = await fetchBalanceService(account.address, highestConfirmation);
-
-    let changes = await Promise.mapSeries(filteredTxs, async filteredLastTx => {
-      let tx = await transformTx(filteredLastTx);
+    let changes = await Promise.mapSeries(_.union(filteredTxs3, filteredTxs6), async filteredLastTxId => {
+      let tx = await ipcExec('getrawtransaction', [filteredLastTxId, true]);
+      tx = await transformTx(tx);
 
       let newBalances = _.chain([
         {'balances.confirmations0': balances.balances.confirmations0, min: 0},
@@ -59,12 +52,14 @@ module.exports = async (blockHeight) => {
     await accountModel.update({address: account.address}, {
       $set: _.merge({
         lastBlockCheck: blockHeight,
-        lastTxs: _.chain(txs)
-          .transform((result, tx) => {
-            if (tx && tx.confirmations <= 6) {
-              result.push(tx.txid);
-            }
-          }, [])
+        lastTxs: _.chain(blocks)
+          .map(block => block.tx)
+          .flatten()
+          .thru(blockTxs => [
+            _.intersection(account.lastTxs, mempool),
+            _.intersection(account.lastTxs, blockTxs)
+          ])
+          .flattenDeep()
           .value()
       }, _.chain(changes)
         .sortBy('tx.confirmations')
@@ -77,7 +72,6 @@ module.exports = async (blockHeight) => {
 
   });
 
-
-  return _.filter(items, item=> _.get(item, 'data.length'));
+  return _.filter(items, item => _.get(item, 'data.length'));
 
 };
