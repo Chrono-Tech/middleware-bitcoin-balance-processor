@@ -1,6 +1,6 @@
 const _ = require('lodash'),
   Promise = require('bluebird'),
-  fetchTXService = require('../services/fetchTXService');
+  ipcExec = require('../utils/ipcExec');
 
 /**
  * @service
@@ -19,7 +19,8 @@ module.exports = async tx => {
         addresses: null
       };
 
-    let vinTx = await fetchTXService(vin.txid);
+    let vinTx = await ipcExec('getrawtransaction', [vin.txid, true]);
+
     return vinTx.vout[vin.vout];
   });
 

@@ -33,13 +33,13 @@ let countNegative = (txs, address) => {
  */
 
 
-module.exports = async address => {
+module.exports = async (address, blockLimit) => {
 
   let height = await ipcExec('getblockcount', []);
 
   let txsCoins = await ipcExec('getcoinsbyaddress', [address]);
 
-  let lastTxs = await ipcExec('getblockrangetxbyaddress', [address, 6]);
+  let lastTxs = await ipcExec('getblockrangetxbyaddress', [address, blockLimit]);
 
   let balance0 = _.chain(txsCoins)
     .map(coin => coin.value)
