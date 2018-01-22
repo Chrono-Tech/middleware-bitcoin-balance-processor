@@ -1,4 +1,6 @@
 const ipcExec = require('../utils/ipcExec'),
+  transformTx = require('../utils/transformTx'),
+  Promise = require('bluebird'),
   _ = require('lodash');
 
 let countPositive = (txs, address) => {
@@ -30,13 +32,11 @@ let countNegative = (txs, address) => {
  */
 
 
-module.exports = async (address, blockLimit) => {
+module.exports = async (address, lastTxs = []) => {
 
   let height = await ipcExec('getblockcount', []);
 
   let txsCoins = await ipcExec('getcoinsbyaddress', [address]);
-
-  let lastTxs = await ipcExec('getblockrangetxbyaddress', [address, blockLimit]);
 
   let balance0 = _.chain(txsCoins)
     .map(coin => coin.value)
@@ -64,7 +64,8 @@ module.exports = async (address, blockLimit) => {
 
   return {
     balances: balances,
-    lastBlockCheck: height
+    lastBlockCheck: height,
+    lastTxs: lastTxs
   };
 
 };

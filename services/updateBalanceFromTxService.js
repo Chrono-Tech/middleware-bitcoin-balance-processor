@@ -31,7 +31,7 @@ module.exports = async (address, blockHeight, txs) => {
     let diff = countTxBalanceDiff([tx], address);
     balances.confirmations0 = _.get(account, 'balances.confirmations0', 0) + diff.positive - diff.negative;
   } else {
-    let items = await fetchBalanceService(address, 0);
+    let items = await fetchBalanceService(address);
     balances = items.balances;
   }
 

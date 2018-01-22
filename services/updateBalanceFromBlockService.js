@@ -12,25 +12,28 @@ module.exports = async (blockHeight) => {
     lastBlockCheck: {$lt: blockHeight}
   });
 
-  let mempool = await ipcExec('getrawmempool', [false]);
   let blocks = await Promise.mapSeries(_.map(new Array(6), (item, iter) => blockHeight - iter), height =>
     ipcExec('getblockbyheight', [height])
   );
 
   let items = await Promise.mapSeries(accounts, async account => {
 
-    let filteredTxs3 = _.intersection(blocks[2].tx, account.lastTxs);
-    let filteredTxs6 = _.intersection(blocks[5].tx, account.lastTxs);
+    let filteredTxs3 = _.intersection(blocks[2].tx, account.lastTxs) || [];
+    let filteredTxs6 = _.intersection(blocks[5].tx, account.lastTxs) || [];
 
-    if (!filteredTxs3 && !filteredTxs6)
-      return;
+    filteredTxs3 = await Promise.mapSeries(filteredTxs3, async txid=>{
+      let tx = await ipcExec('getrawtransaction', [txid, true]);
+      return await transformTx(tx);
+    });
 
-    let balances = await fetchBalanceService(account.address, filteredTxs6 ? 6 : 3);
+    filteredTxs6 = await Promise.mapSeries(filteredTxs6, async txid=>{
+      let tx = await ipcExec('getrawtransaction', [txid, true]);
+      return await transformTx(tx);
+    });
 
-    let changes = await Promise.mapSeries(_.union(filteredTxs3, filteredTxs6), async filteredLastTxId => {
-      let tx = await ipcExec('getrawtransaction', [filteredLastTxId, true]);
-      tx = await transformTx(tx);
+    let balances = await fetchBalanceService(account.address, filteredTxs6.length ? filteredTxs6 : filteredTxs3);
 
+    let changes = await Promise.mapSeries(_.union(filteredTxs3, filteredTxs6), async tx => {
       let newBalances = _.chain([
         {'balances.confirmations0': balances.balances.confirmations0, min: 0},
         {'balances.confirmations3': balances.balances.confirmations3, min: 3},
@@ -55,10 +58,7 @@ module.exports = async (blockHeight) => {
         lastTxs: _.chain(blocks)
           .map(block => block.tx)
           .flatten()
-          .thru(blockTxs => [
-            _.intersection(account.lastTxs, mempool),
-            _.intersection(account.lastTxs, blockTxs)
-          ])
+          .intersection(account.lastTxs)
           .flattenDeep()
           .value()
       }, _.chain(changes)
