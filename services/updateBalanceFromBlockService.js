@@ -21,12 +21,12 @@ module.exports = async (blockHeight) => {
     let filteredTxs3 = _.intersection(blocks[2].tx, account.lastTxs) || [];
     let filteredTxs6 = _.intersection(blocks[5].tx, account.lastTxs) || [];
 
-    filteredTxs3 = await Promise.mapSeries(filteredTxs3, async txid=>{
+    filteredTxs3 = await Promise.mapSeries(filteredTxs3, async txid => {
       let tx = await ipcExec('getrawtransaction', [txid, true]);
       return await transformTx(tx);
     });
 
-    filteredTxs6 = await Promise.mapSeries(filteredTxs6, async txid=>{
+    filteredTxs6 = await Promise.mapSeries(filteredTxs6, async txid => {
       let tx = await ipcExec('getrawtransaction', [txid, true]);
       return await transformTx(tx);
     });
@@ -35,15 +35,18 @@ module.exports = async (blockHeight) => {
 
     let changes = await Promise.mapSeries(_.union(filteredTxs3, filteredTxs6), async tx => {
       let newBalances = _.chain([
-        {'balances.confirmations0': balances.balances.confirmations0, min: 0},
-        {'balances.confirmations3': balances.balances.confirmations3, min: 3},
-        {'balances.confirmations6': balances.balances.confirmations6, min: 6}
+        {
+          'balances.confirmations0': balances.balances.confirmations0,
+          include: filteredTxs6.length || filteredTxs3.length
+        },
+        {'balances.confirmations3': balances.balances.confirmations3, include: filteredTxs3.length},
+        {'balances.confirmations6': balances.balances.confirmations6, include: filteredTxs6.length}
       ])
         .transform((result, item) => {
-          if (tx.confirmations >= item.min)
+          if (item.include)
             Object.assign(result, item);
         }, {})
-        .omit('min')
+        .omit('include')
         .value();
 
       return {
