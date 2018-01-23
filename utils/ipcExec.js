@@ -1,5 +1,6 @@
 const Promise = require('bluebird'),
   config = require('../config'),
+  _ = require('lodash'),
   ipc = require('node-ipc');
 
 module.exports = async (method, params) => {
@@ -7,7 +8,7 @@ module.exports = async (method, params) => {
   const ipcInstance = new ipc.IPC;
 
   Object.assign(ipcInstance.config, {
-    id: Date.now(),
+    id: `${Date.now()}${_.random(Math.pow(2, 32))}`,
     socketRoot: config.node.ipcPath,
     retry: 1500,
     sync: true,
@@ -16,9 +17,10 @@ module.exports = async (method, params) => {
     maxRetries: 3
   });
 
-  await new Promise(res => {
+  await new Promise((res, rej) => {
     ipcInstance.connectTo(config.node.ipcName, () => {
       ipcInstance.of[config.node.ipcName].on('connect', res);
+      ipcInstance.of[config.node.ipcName].on('error', rej);
     });
   });
 
