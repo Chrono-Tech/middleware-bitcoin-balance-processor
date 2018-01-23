@@ -66,9 +66,15 @@ let init = async () => {
         log.info(`balance updated for ${update.address}`);
       }
       channel.ack(data);
-    } catch (e) {
-      log.error(e);
-      channel.nack(data);
+    } catch (err) {
+
+      if (err instanceof Promise.TimeoutError) {
+        log.error('Timeout processing the block');
+        return channel.nack(data);
+      }
+
+      channel.ack(data);
+      log.error(err);
     }
 
   });
