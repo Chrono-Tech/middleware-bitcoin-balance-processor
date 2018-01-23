@@ -52,8 +52,8 @@ let init = async () => {
       let payload = JSON.parse(data.content.toString());
 
       let updates = payload.txs ?
-        [await updateBalanceFromTxService(payload.address, payload.block, payload.txs)] :
-        await updateBalanceFromBlockService(payload.block);
+        [await Promise.resolve(updateBalanceFromTxService(payload.address, payload.block, payload.txs)).timeout(60000 * 5)] :
+        await Promise.resolve(updateBalanceFromBlockService(payload.block)).timeout(60000 * 5);
 
       for (let update of _.compact(updates)) {
         for (let item of update.data) {
@@ -65,10 +65,11 @@ let init = async () => {
         }
         log.info(`balance updated for ${update.address}`);
       }
+      channel.ack(data);
     } catch (e) {
       log.error(e);
+      channel.nack(data);
     }
-    channel.ack(data);
 
   });
 
