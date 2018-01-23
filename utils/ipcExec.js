@@ -13,7 +13,7 @@ module.exports = async (method, params) => {
     retry: 1500,
     sync: true,
     silent: true,
-    unlink: false,
+    unlink: true,
     maxRetries: 3
   });
 
