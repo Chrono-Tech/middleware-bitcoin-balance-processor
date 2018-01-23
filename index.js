@@ -52,8 +52,8 @@ let init = async () => {
       let payload = JSON.parse(data.content.toString());
 
       let updates = payload.txs ?
-        [await Promise.resolve(updateBalanceFromTxService(payload.address, payload.block, payload.txs)).timeout(60000 * 5)] :
-        await Promise.resolve(updateBalanceFromBlockService(payload.block)).timeout(60000 * 5);
+        [await Promise.resolve(updateBalanceFromTxService(payload.address, payload.block, payload.txs)).timeout(20000)] :
+        await Promise.resolve(updateBalanceFromBlockService(payload.block)).timeout(20000);
 
       for (let update of _.compact(updates)) {
         for (let item of update.data) {
@@ -69,8 +69,15 @@ let init = async () => {
     } catch (err) {
 
       if (err instanceof Promise.TimeoutError) {
-        log.error('Timeout processing the block');
-        return channel.nack(data);
+        log.error('Timeout processing the request. Restarting in 5 seconds...');
+        await Promise.delay(5000);
+        return process.exit(0);
+      }
+
+      if (err && err.code === 'ENOENT') {
+        log.error('Node is not available. Restarting in 5 seconds...');
+        await Promise.delay(5000);
+        return process.exit(0);
       }
 
       channel.ack(data);
