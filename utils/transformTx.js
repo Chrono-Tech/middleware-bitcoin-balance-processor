@@ -1,6 +1,6 @@
 const _ = require('lodash'),
   Promise = require('bluebird'),
-  fetchTXService = require('../services/fetchTXService');
+  ipcExec = require('../utils/ipcExec');
 
 /**
  * @service
@@ -12,6 +12,8 @@ const _ = require('lodash'),
 
 module.exports = async tx => {
 
+  if(!tx.vin)
+  console.log(tx)
   tx.inputs = await Promise.mapSeries(tx.vin, async vin => {
     if (vin.coinbase)
       return {
@@ -19,7 +21,8 @@ module.exports = async tx => {
         addresses: null
       };
 
-    let vinTx = await fetchTXService(vin.txid);
+    let vinTx = await ipcExec('getrawtransaction', [vin.txid, true]);
+
     return vinTx.vout[vin.vout];
   });
 
