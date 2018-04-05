@@ -1,6 +1,4 @@
 const ipcExec = require('../utils/ipcExec'),
-  transformTx = require('../utils/transformTx'),
-  Promise = require('bluebird'),
   _ = require('lodash');
 
 let countPositive = (txs, address) => {

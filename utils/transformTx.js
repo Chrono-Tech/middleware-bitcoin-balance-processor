@@ -13,7 +13,7 @@ const _ = require('lodash'),
 module.exports = async tx => {
 
   if(!tx.vin)
-  console.log(tx)
+    console.log(tx);
   tx.inputs = await Promise.mapSeries(tx.vin, async vin => {
     if (vin.coinbase)
       return {
