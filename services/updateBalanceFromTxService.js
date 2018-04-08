@@ -5,10 +5,9 @@
  */
 
 const ipcExec = require('../utils/ipcExec'),
-  fetchBalanceService = require('./fetchBalanceService'),
   accountModel = require('../models/accountModel'),
-  transformTx = require('../utils/transformTx'),
-  countTxBalanceDiff = require('../utils/countTxBalanceDiff'),
+  utxoModel = require('../models/utxoModel'),
+  txModel = require('../models/txModel'),
   _ = require('lodash');
 
 module.exports = async (address, blockHeight, txs) => {
@@ -29,24 +28,28 @@ module.exports = async (address, blockHeight, txs) => {
     .last()
     .value();
 
-  let tx = await ipcExec('getrawtransaction', [lastTx, true]);
-  tx = await transformTx(tx);
+  let tx = await txModel.find({hash: lastTx});
+  tx = _.chain(tx)
+    .map(tx => tx.hash)
+    .flattenDeep()
+    .value();
 
   let balances = {};
-  if (account.lastBlockCheck === currentHeight) {
-    let diff = countTxBalanceDiff([tx], address);
-    balances.confirmations0 = _.get(account, 'balances.confirmations0', 0) + diff.positive - diff.negative;
-  } else {
-    let items = await fetchBalanceService(address);
-    balances = items.balances;
-  }
+ 
+  let result = await utxoModel.find({address: address});
+    
+  balances = _.chain(result)
+    .map(result => result.value)
+    .flattenDeep()
+    .sum()
+    .value();
 
   let savedAccount = await accountModel.findOneAndUpdate({
     address: address,
     lastBlockCheck: {$lte: currentHeight}
   }, {
     $set: {
-      'balances.confirmations0': balances.confirmations0,
+      'balances.confirmations0': balances,
       lastBlockCheck: currentHeight,
       lastTxs: _.chain(lastTx)
         .thru(txid => [txid])

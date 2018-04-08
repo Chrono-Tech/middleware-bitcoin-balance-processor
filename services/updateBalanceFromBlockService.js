@@ -5,48 +5,43 @@
  */
 
 const Promise = require('bluebird'),
-  ipcExec = require('../utils/ipcExec'),
-  fetchBalanceService = require('./fetchBalanceService'),
   accountModel = require('../models/accountModel'),
-  transformTx = require('../utils/transformTx'),
+  utxoModel = require('../models/utxoModel'),
+  txModel = require('../models/txModel'),
   _ = require('lodash');
 
 module.exports = async (blockHeight) => {
 
-  let accounts = await accountModel.find({
-    $where: 'obj.lastTxs.length > 0',
-    lastBlockCheck: {$lt: blockHeight}
-  });
+  let txs = await txModel.find({blockNumber: blockHeight});
+  
+  let addresses = _.chain(txs)
+    .map(tx => tx.outputs)
+    .flattenDeep()
+    .map(output => output.address)
+    .flattenDeep()
+    .uniq()
+    .compact()
+    .value();
 
-  let blocks = await Promise.mapSeries(_.map(new Array(6), (item, iter) => blockHeight - iter), height =>
-    ipcExec('getblockbyheight', [height])
-  );
+  let accounts = await accountModel.find({address: {$in: addresses}});
 
   let items = await Promise.mapSeries(accounts, async account => {
+    let result = await utxoModel.find({address: account.address});
 
-    let filteredTxs3 = _.intersection(blocks[2].tx, account.lastTxs) || [];
-    let filteredTxs6 = _.intersection(blocks[5].tx, account.lastTxs) || [];
+    let balances = _.chain(result)
+      .map(result => result.value)
+      .flattenDeep()
+      .sum()
+      .value();
 
-    filteredTxs3 = await Promise.mapSeries(filteredTxs3, async txid => {
-      let tx = await ipcExec('getrawtransaction', [txid, true]);
-      return await transformTx(tx);
-    });
-
-    filteredTxs6 = await Promise.mapSeries(filteredTxs6, async txid => {
-      let tx = await ipcExec('getrawtransaction', [txid, true]);
-      return await transformTx(tx);
-    });
-
-    let balances = await fetchBalanceService(account.address, filteredTxs6.length ? filteredTxs6 : filteredTxs3);
-
-    let changes = await Promise.mapSeries(_.union(filteredTxs3, filteredTxs6), async tx => {
+    let changes = await Promise.mapSeries(txs, async tx => {
       let newBalances = _.chain([
         {
-          'balances.confirmations0': balances.balances.confirmations0,
-          include: filteredTxs6.length || filteredTxs3.length
+          'balances.confirmations0': balances,
+          include: tx.length
         },
-        {'balances.confirmations3': balances.balances.confirmations3, include: filteredTxs3.length},
-        {'balances.confirmations6': balances.balances.confirmations6, include: filteredTxs6.length}
+        {'balances.confirmations3': balances, include: tx.length},
+        {'balances.confirmations6': balances, include: tx.length}
       ])
         .transform((result, item) => {
           if (item.include)
@@ -64,14 +59,13 @@ module.exports = async (blockHeight) => {
     await accountModel.update({address: account.address}, {
       $set: _.merge({
         lastBlockCheck: blockHeight,
-        lastTxs: _.chain(blocks)
+        lastTxs: _.chain(txs) // тут надо исправить, пока правда хз что исправить
           .map(block => block.tx)
           .flatten()
           .intersection(account.lastTxs)
           .flattenDeep()
           .value()
       }, _.chain(changes)
-        .sortBy('tx.confirmations')
         .last()
         .get('balances')
         .value())
