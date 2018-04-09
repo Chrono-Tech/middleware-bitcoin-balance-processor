@@ -53,8 +53,8 @@ module.exports = async (blockHeight) => {
     await accountModel.update({address: account.address}, {
       $set: _.merge({
         lastBlockCheck: blockHeight,
-        lastTxs: _.chain(txs) // тут надо исправить, пока правда хз что исправить
-          .map(block => block.tx)
+        lastTxs: _.chain(txs)
+          .map(tx => tx.hash)
           .flatten()
           .intersection(account.lastTxs)
           .flattenDeep()

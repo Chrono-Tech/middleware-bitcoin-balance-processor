@@ -135,7 +135,7 @@ describe('core/balanceProcessor', function () {
         if (message.tx.txid !== ctx.tx.txid())
           return;
 
-        if (message.tx.confirmations === 0 || message.tx.confirmations === 6)
+        if (message.tx)
           confirmations++;
 
         if (confirmations === 2)
