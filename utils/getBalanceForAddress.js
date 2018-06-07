@@ -5,23 +5,32 @@
  */
 
 const coinModel = require('../models/coinModel'),
+  Promise = require('bluebird'),
+  BigNumber = require('bignumber.js'),
   _ = require('lodash');
 
-module.exports = async (address) => {
-  const sum  = await coinModel.aggregate([
-    { 
-      $match: {
-        address: address, 
-        inputBlock: {$exists: false}
-      }
-    },
-    { 
-      $group: { 
-        _id : '$address', 
-        sum: { $sum: '$value' } 
-      } 
-    }
-  ]);
+const LIMIT = 10000;
 
-  return _.get(sum, '0.sum', 0);
+const sumCoins = (coins) => {
+  return _.reduce(coins, (sum, coin) => {
+    return sum.plus(coin.value);
+  }, new BigNumber(0));
+};
+
+const sumNumbers = (sums) => {
+  return _.reduce(sums, (genSum, sum) => genSum.plus(sum), new BigNumber(0));
+};
+
+module.exports = async (address, blockNumber) => {
+  const condition = {address, inputBlock: {$exists: false}};
+  if (blockNumber)
+    condition['outputBlock'] = {$lt: blockNumber};
+  const countCoins = await coinModel.count(condition);
+  
+  const sums = await Promise.mapSeries(_.range(0, countCoins, LIMIT), async startCoin => {
+    const coins = await coinModel.find(condition).select('value').skip(startCoin).limit(LIMIT);
+    return sumCoins(coins);  
+  });
+
+  return  sumNumbers(sums);
 };

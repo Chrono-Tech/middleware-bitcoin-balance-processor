@@ -7,7 +7,7 @@ const _ = require('lodash'),
   Promise = require('bluebird'),
   txModel = require('../models/txModel'),
   accountModel = require('../models/accountModel'),
-  getBalanceForAddressBeforeBlock = require('../utils/getBalanceForAddressBeforeBlock'),
+  getBalanceForAddress = require('../utils/getBalanceForAddress'),
   getGroupCoinsForBlocks = require('../utils/getGroupCoinsForBlocks');
 
 /**
@@ -52,7 +52,7 @@ module.exports = async blockHeight => {
 
     
     const confirmationsKey = getConfirmationsKey(groupCoin.outputBlock),
-      value = await getBalanceForAddressBeforeBlock(groupCoin.address, groupCoin.outputBlock+1);
+      value = await getBalanceForAddress(groupCoin.address, groupCoin.outputBlock+1);
 
     _.set(account, confirmationsKey, value);
     account['tx'] = await getTxHashOnlyOneForAddress(groupCoin.address, groupCoin.outputBlock, groupCoin.outputTxIndex);
