@@ -16,17 +16,15 @@ module.exports = async (blockHeight) => {
     await updateAccount.save();
   });
 
-  return _.map(updatedAccounts, updatedAccount => {
-    return {
-      data: [{
-        balances: {
-          confirmations0: updatedAccount['balances']['confirmations0'],
-          confirmations3: updatedAccount['balances']['confirmations3'],
-          confirmations6: updatedAccount['balances']['confirmations6']
-        },
-        tx: updatedAccount['tx']
-      }],
-      address: updatedAccount['address']
-    };
-  });
+  return updatedAccounts.map(updatedAccount => ({
+    data: [{
+      balances: {
+        confirmations0: _.get(updatedAccount, 'balances.confirmations0'),
+        confirmations3: _.get(updatedAccount, 'balances.confirmations3'),
+        confirmations6: _.get(updatedAccount, 'balances.confirmations6')
+      },
+      tx: updatedAccount.tx
+    }],
+    address: updatedAccount.address
+  }));
 };
