@@ -28,7 +28,7 @@ module.exports = async (address, blockNumber) => {
   const countCoins = await coinModel.count(condition);
   
   const sums = await Promise.mapSeries(_.range(0, countCoins, LIMIT), async startCoin => {
-    const coins = await coinModel.find(condition).skip(startCoin).limit(LIMIT);
+    const coins = await coinModel.find(condition).select('value').skip(startCoin).limit(LIMIT);
     return sumCoins(coins);  
   });
 
