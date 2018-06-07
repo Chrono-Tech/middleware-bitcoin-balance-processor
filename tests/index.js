@@ -7,7 +7,14 @@
 require('dotenv/config');
 
 const config = require('../config'),
-  expect = require('chai').expect,
+  Promise = require('bluebird'),
+  mongoose = require('mongoose');
+
+  mongoose.Promise = Promise;
+mongoose.connect(config.mongo.data.uri, {useMongoClient: true});
+mongoose.accounts = mongoose.createConnection(config.mongo.accounts.uri, {useMongoClient: true});
+
+const  expect = require('chai').expect,
   accountModel = require('../models/accountModel'),
   ipcExec = require('./helpers/ipcExec'),
   _ = require('lodash'),
@@ -15,12 +22,10 @@ const config = require('../config'),
   bcoin = require('bcoin'),
   WebSocket = require('ws'),
   Stomp = require('webstomp-client'),
-  Promise = require('bluebird'),
   ctx = {
     network: null,
     accounts: []
-  },
-  mongoose = require('mongoose');
+  };
 
 describe('core/balanceProcessor', function () {
 

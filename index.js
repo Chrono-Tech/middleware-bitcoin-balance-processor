@@ -6,10 +6,15 @@
 
 const config = require('./config'),
   mongoose = require('mongoose'),
-  updateBalanceFromBlockService = require('./services/updateBalanceFromBlockService'),
+  Promise = require('bluebird');
+
+mongoose.Promise = Promise;
+mongoose.connect(config.mongo.data.uri, {useMongoClient: true});
+mongoose.accounts = mongoose.createConnection(config.mongo.accounts.uri, {useMongoClient: true});
+  
+const  updateBalanceFromBlockService = require('./services/updateBalanceFromBlockService'),
   updateBalanceFromTxService = require('./services/updateBalanceFromTxService'),
   bunyan = require('bunyan'),
-  Promise = require('bluebird'),
   _ = require('lodash'),
   log = bunyan.createLogger({name: 'core.balanceProcessor'}),
   amqp = require('amqplib');
@@ -19,14 +24,12 @@ const config = require('./config'),
  * @description update balances for addresses, which were specified
  * in received transactions from blockParser via amqp
  */
-
-mongoose.Promise = Promise;
-mongoose.connect(config.mongo.accounts.uri, {useMongoClient: true});
-
-mongoose.connection.on('disconnected', function () {
-  log.error('mongo disconnected!');
-  process.exit(0);
-});
+[mongoose.accounts, mongoose.connection].forEach(connection =>
+  connection.on('disconnected', function () {
+    log.error('mongo disconnected!');
+    process.exit(0);
+  })
+);
 
 let init = async () => {
   let conn = await amqp.connect(config.rabbit.url)
@@ -40,6 +43,7 @@ let init = async () => {
     log.error('rabbitmq process has finished!');
     process.exit(0);
   });
+
 
   try {
     await channel.assertExchange('events', 'topic', {durable: false});
@@ -58,7 +62,7 @@ let init = async () => {
       let payload = JSON.parse(data.content.toString());
 
       let updates = payload.txs ?
-        [await Promise.resolve(updateBalanceFromTxService(payload.address, payload.block, payload.txs)).timeout(60000 * 5)] :
+        await Promise.resolve(updateBalanceFromTxService(payload.address, payload.block, payload.txs)).timeout(60000 * 5) :
         await Promise.resolve(updateBalanceFromBlockService(payload.block)).timeout(60000 * 5);
 
       for (let update of _.compact(updates)) {
