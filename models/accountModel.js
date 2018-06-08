@@ -24,7 +24,6 @@ const Account = new mongoose.Schema({
     confirmations6: {type: Number, default: 0, required: true}
   },
   isActive: {type: Boolean, required: true, default: true},
-  lastBlockCheck: {type: Number, default: 0, required: true},
   created: {type: Date, required: true, default: Date.now}
 });
 

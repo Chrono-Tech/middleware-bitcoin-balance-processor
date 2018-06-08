@@ -5,26 +5,31 @@
  */
 
 const Promise = require('bluebird'),
-  getUpdatedAccounts = require('../utils/getUpdatedAccounts'),
+  getAddressBalanceOnConfirmations = require('../utils/getAddressBalanceOnConfirmations'),
+  accountModel = require('../models/accountModel'),
   _ = require('lodash');
 
 
 module.exports = async (blockHeight) => {
-  const updatedAccounts = await getUpdatedAccounts(blockHeight);
+  const balanceChanges = await getAddressBalanceOnConfirmations(blockHeight);
 
-  await Promise.map(updatedAccounts, async updateAccount => {
-    await updateAccount.save();
+  const totalChangesAddress = await Promise.map(balanceChanges, async balanceChange => {
+    let updatedAccount = await accountModel.findOneAndUpdate({address: balanceChange.address}, {$set: balanceChange.balances}, {new: true});
+
+    return balanceChange.txs.map(tx => ({
+      data: [{
+        balances: {
+          confirmations0: _.get(updatedAccount, 'balances.confirmations0'),
+          confirmations3: _.get(updatedAccount, 'balances.confirmations3'),
+          confirmations6: _.get(updatedAccount, 'balances.confirmations6')
+        },
+        tx: tx
+      }],
+      address: updatedAccount.address
+    }));
+
   });
 
-  return updatedAccounts.map(updatedAccount => ({
-    data: [{
-      balances: {
-        confirmations0: _.get(updatedAccount, 'balances.confirmations0'),
-        confirmations3: _.get(updatedAccount, 'balances.confirmations3'),
-        confirmations6: _.get(updatedAccount, 'balances.confirmations6')
-      },
-      tx: updatedAccount.tx
-    }],
-    address: updatedAccount.address
-  }));
+  return _.flattenDeep(totalChangesAddress);
+
 };
