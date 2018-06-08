@@ -49,13 +49,13 @@ module.exports = async blockHeight => {
       return;
 
 
-    if (coinsByConfirmations3) {
+    if (coinsByConfirmations3.length) {
       result.balances['balances.confirmations3'] = await getBalanceForAddress(result.address, blockHeight - 2);
       let confirmation3Txs = await Promise.map(coinsByConfirmations3, async coin => await getTxHash(coin.outputBlock, coin.outputTxIndex));
       result.txs.push(..._.compact(confirmation3Txs));
     }
 
-    if (coinsByConfirmations6) {
+    if (coinsByConfirmations6.length) {
       result.balances['balances.confirmations6'] = await getBalanceForAddress(result.address, blockHeight - 5);
       let confirmation6Txs = await Promise.map(coinsByConfirmations6, async coin => await getTxHash(coin.outputBlock, coin.outputTxIndex));
       result.txs.push(..._.compact(confirmation6Txs));

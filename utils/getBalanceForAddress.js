@@ -31,7 +31,7 @@ const sumNumbers = (sums) => {
 module.exports = async (address, blockNumber) => {
   const condition = {address, inputBlock: {$exists: false}};
   if (blockNumber)
-    condition.outputBlock = {$lt: blockNumber};
+    condition.outputBlock = {$lte: blockNumber};
   const countCoins = await coinModel.count(condition);
 
   const sums = await Promise.mapSeries(_.range(0, countCoins, LIMIT), async startCoin => {
