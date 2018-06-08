@@ -24,9 +24,7 @@ const Account = new mongoose.Schema({
     confirmations6: {type: Number, default: 0, required: true}
   },
   isActive: {type: Boolean, required: true, default: true},
-  lastBlockCheck: {type: Number, default: 0, required: true},
-  lastTxs: {type: mongoose.Schema.Types.Mixed, default: [], required: true},
   created: {type: Date, required: true, default: Date.now}
 });
 
-module.exports = mongoose.model(`${config.mongo.accounts.collectionPrefix}Account`, Account);
+module.exports = mongoose.accounts.model(`${config.mongo.accounts.collectionPrefix}Account`, Account);
