@@ -6,7 +6,7 @@
 
 const Promise = require('bluebird'),
   ipc = require('node-ipc'),
-  config = require('../../config');
+  config = require('../config');
 
 module.exports = async (method, params) => {
 

@@ -9,15 +9,13 @@ const getBalanceForAddress = require('../utils/getBalanceForAddress'),
   _ = require('lodash');
 
 
-
 module.exports = async (address, blockHeight, txs) => {
 
   const account = await accountModel.findOne({address: address});
   if (!account)
     return;
-  
-  const initBalance = _.get(account, 'balances.confirmations0', null);
-  const tx = _.last(txs);    
+
+  const initBalance = _.get(account, 'balances.confirmations0', 0);
   const balance = await getBalanceForAddress(address);
   if (balance === initBalance)
     return [];
@@ -26,16 +24,15 @@ module.exports = async (address, blockHeight, txs) => {
     address: address
   }, {
     $set: {
-      'balances.confirmations0': balance,
-      lastBlockCheck: (blockHeight) ? blockHeight : -1
+      'balances.confirmations0': balance
     }
   }, {new: true});
 
-  return [{
+  return txs.map(tx => ({
     data: [{
       balances: updatedAccount.balances,
       tx: tx
     }],
     address: address
-  }];
+  }));
 };

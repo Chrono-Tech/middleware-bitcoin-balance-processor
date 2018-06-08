@@ -12,25 +12,32 @@ const coinModel = require('../models/coinModel'),
 const LIMIT = 10000;
 
 const sumCoins = (coins) => {
-  return _.reduce(coins, (sum, coin) => {
-    return sum.plus(coin.value);
-  }, new BigNumber(0));
+  return _.chain(coins)
+    .reduce((sum, coin) => {
+      return sum.plus(coin.value);
+    }, new BigNumber(0))
+    .thru(bigNumber => bigNumber.toNumber())
+    .value();
 };
 
 const sumNumbers = (sums) => {
-  return _.reduce(sums, (genSum, sum) => genSum.plus(sum), new BigNumber(0));
+  return _.chain(sums)
+    .reduce((genSum, sum) =>
+      genSum.plus(sum), new BigNumber(0))
+    .thru(bigNumber => bigNumber.toNumber())
+    .value();
 };
 
 module.exports = async (address, blockNumber) => {
   const condition = {address, inputBlock: {$exists: false}};
   if (blockNumber)
-    condition['outputBlock'] = {$lt: blockNumber};
+    condition.outputBlock = {$lte: blockNumber};
   const countCoins = await coinModel.count(condition);
-  
+
   const sums = await Promise.mapSeries(_.range(0, countCoins, LIMIT), async startCoin => {
     const coins = await coinModel.find(condition).select('value').skip(startCoin).limit(LIMIT);
-    return sumCoins(coins);  
+    return sumCoins(coins);
   });
 
-  return  sumNumbers(sums);
+  return sumNumbers(sums);
 };
