@@ -7,7 +7,14 @@
 require('dotenv/config');
 
 const config = require('../config'),
-  expect = require('chai').expect,
+  Promise = require('bluebird'),
+  mongoose = require('mongoose');
+
+  mongoose.Promise = Promise;
+mongoose.connect(config.mongo.data.uri, {useMongoClient: true});
+mongoose.accounts = mongoose.createConnection(config.mongo.accounts.uri, {useMongoClient: true});
+
+const  expect = require('chai').expect,
   accountModel = require('../models/accountModel'),
   ipcExec = require('./helpers/ipcExec'),
   _ = require('lodash'),
@@ -15,12 +22,10 @@ const config = require('../config'),
   bcoin = require('bcoin'),
   WebSocket = require('ws'),
   Stomp = require('webstomp-client'),
-  Promise = require('bluebird'),
   ctx = {
     network: null,
     accounts: []
-  },
-  mongoose = require('mongoose');
+  };
 
 describe('core/balanceProcessor', function () {
 
@@ -133,33 +138,40 @@ describe('core/balanceProcessor', function () {
     let keyring = new bcoin.keyring(ctx.accounts[0].privateKey, ctx.network);
     let keyring2 = new bcoin.keyring(ctx.accounts[1].privateKey, ctx.network);
 
-    await new Promise(res => {
-      let confirmations = 0;
-      ctx.stompClient.subscribe(`/exchange/events/${config.rabbit.serviceName}_balance.${keyring.getAddress().toString()}`, function (message) {
-        message = JSON.parse(message.body);
+    
+    await Promise.all([
+      (async () => {
+        let confirmations = 0;
+        
+        ctx.stompClient.subscribe(`/exchange/events/${config.rabbit.serviceName}_balance.${keyring.getAddress().toString()}`, async (message) => {
+          message = JSON.parse(message.body);
 
-        if (message.tx.txid !== ctx.tx.txid())
-          return;
+          if (message.tx !== ctx.tx.txid())
+            return;
 
-        if (message.tx.confirmations === 0 || message.tx.confirmations === 6)
-          confirmations++;
+          let tx = await ipcExec('gettransaction', ctx.tx.txid()).catch(() => {});
+          if (!tx || !tx.confirmations )
+            tx = {confirmations: 0};
+          
+          if (tx.confirmations === 0 || tx.confirmations === 6)
+            confirmations++;
 
-        if (confirmations === 2)
-          res();
+          if (confirmations === 2)
+            res();
 
-      });
-
-      ipcExec('sendrawtransaction', [ctx.tx.toRaw().toString('hex')])
-        .then(() => {
-          let timeInterval = setInterval(function () {
-            ipcExec('generatetoaddress', [6, keyring2.getAddress().toString()]);
-            if (confirmations === 2)
-              clearInterval(timeInterval);
-          }, 2000);
         });
-
-    });
-
+      })(),
+      (async () => {
+        const res = await ipcExec('sendrawtransaction', [ctx.tx.toRaw().toString('hex')]);
+        await ipcExec('generatetoaddress', [6, keyring2.getAddress().toString()]);
+        await ipcExec('generatetoaddress', [6, keyring2.getAddress().toString()]);
+        await ipcExec('generatetoaddress', [6, keyring2.getAddress().toString()]);
+        await ipcExec('generatetoaddress', [6, keyring2.getAddress().toString()]);
+        await ipcExec('generatetoaddress', [6, keyring2.getAddress().toString()]);
+        await ipcExec('generatetoaddress', [6, keyring2.getAddress().toString()]);
+           
+      })()
+    ]);
   });
 
   it('validate balance for all accounts in mongodb', async () => {

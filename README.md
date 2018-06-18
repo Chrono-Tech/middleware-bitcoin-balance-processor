@@ -22,6 +22,23 @@ Rabbitmq is used for 2 main reasons - the first one for inner communication betw
 ```
 Where address is to or from address (and default rabbitmq_service_name=bitcoin).
 
+This middleware get two type events from middleware bitcoin-block-processor
+
+Input events:
+
+| name queue | format message |
+| ------ | ------- | 
+| ``` <rabbitmq_service_name>_transaction.* ``` | ``` {address: <String>, block: <String>, txs: [<String>]} ```
+| ``` <rabbitmq_service_name>_block ``` | ``` {block: <String>} ```
+
+Output events:
+
+| name queue | format message | example |
+| ------- | --------- | ----------- |
+| ``` <rabbitmq_service_name>_balance.{address} ``` | ``` {address: <String>, balances: {confirmations0: <Number>, confirmations3: <Number>, confirmations6: <Number> }, tx: <String>} ``` | ``` { address: 'RUpuMAB1qLZK2ptV43kxMU5kcvyLogdx8R', balances: { confirmations0: 14999986960, confirmations3: 5000000000, confirmations6: 0 }, tx: '0db07f3ec23ee5f56aee88029fdb5d7284d3078c8b433eac157a075f8d8d842c' } ```
+
+
+
 ##### сonfigure your .env
 
 To apply your configuration, create a .env file in root folder of repo (in case it's not present already).
