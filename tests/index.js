@@ -21,11 +21,14 @@ const  expect = require('chai').expect,
   Network = require('bcoin/lib/protocol/network'),
   bcoin = require('bcoin'),
   WebSocket = require('ws'),
+  amqp = require('amqplib'),
   Stomp = require('webstomp-client'),
   ctx = {
     network: null,
     accounts: []
   };
+
+let amqpInstance;
 
 describe('core/balanceProcessor', function () {
 
@@ -53,6 +56,14 @@ describe('core/balanceProcessor', function () {
     return mongoose.disconnect();
   });
 
+  beforeEach(async () => {
+    amqpInstance = await amqp.connect(config.rabbit.url);
+  });
+
+  afterEach(async () => {
+    await amqpInstance.close();
+  });
+
   it('remove registered addresses from mongodb', async () => {
 
     let keyring = new bcoin.keyring(ctx.accounts[0].privateKey, ctx.network);
@@ -73,11 +84,13 @@ describe('core/balanceProcessor', function () {
   it('register addresses', async () => {
     for (let account of ctx.accounts) {
       let keyring = new bcoin.keyring(account.privateKey, ctx.network);
-      await new accountModel({address: keyring.getAddress().toString()})
+      const address = keyring.getAddress().toString();
+      await new accountModel({address})
         .save().catch(() => {
         });
     }
   });
+
 
   it('generate some coins for accountA', async () => {
     let keyring = new bcoin.keyring(ctx.accounts[0].privateKey, ctx.network);
@@ -95,6 +108,38 @@ describe('core/balanceProcessor', function () {
     let account = await accountModel.findOne({address: keyring.getAddress().toString()});
     ctx.amountA = account.balances.confirmations0;
     expect(account.balances.confirmations0).to.be.gt(0);
+  });
+
+  it('remove account 0 and add with zero balance', async () => {
+    let keyring = new bcoin.keyring(ctx.accounts[0].privateKey, ctx.network);
+    const address = keyring.getAddress().toString();
+    await accountModel.remove({address});
+
+    const account = await new accountModel({address})
+    .save().catch(() => {
+    });
+    expect(account.balances.confirmations0).to.be.equal(0);
+
+  });
+
+  it('send message about new account and check this balance', async () => {
+    let keyring = new bcoin.keyring(ctx.accounts[0].privateKey, ctx.network);
+    const address = keyring.getAddress().toString();
+
+
+    const channel = await amqpInstance.createChannel(); 
+    await channel.assertExchange('internal', 'topic', {durable: false});
+    await channel.publish('internal', `${config.rabbit.serviceName}_user.created`, 
+      new Buffer(JSON.stringify({
+        address
+      }))
+    );
+
+    await Promise.delay(4000);
+    const accountAfter = await accountModel.findOne({address});
+    expect(accountAfter.balances.confirmations6).to.be.greaterThan(0);
+    expect(accountAfter.balances.confirmations3).to.be.greaterThan(0);
+    expect(accountAfter.balances.confirmations0).to.be.greaterThan(0);
   });
 
   it('prepare tx for transferring coins from accountB and accountC', async () => {

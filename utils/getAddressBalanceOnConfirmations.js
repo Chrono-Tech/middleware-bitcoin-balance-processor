@@ -15,7 +15,7 @@ const _ = require('lodash'),
  * @param {Number} blockHeight
  * @returns {<AccountModel>Array}
  */
-module.exports = async blockHeight => {
+module.exports = async (blockHeight) => {
 
   const getTxHash = async (blockNumber, index) => {
     const tx = await txModel.findOne({blockNumber, index}).select('_id');
@@ -23,9 +23,10 @@ module.exports = async blockHeight => {
   };
 
 
-  const lastConfirmedCoins = await coinModel.find({ //get coins received between 3 and 6 confirmations
-    outputBlock: {$in: [blockHeight - 2, blockHeight - 5]}
-  });
+  //get coins received between 3 and 6 confirmations
+  const condition = { outputBlock: {$in: [blockHeight - 2, blockHeight - 5]} };
+
+  const lastConfirmedCoins = await coinModel.find(condition);
 
   const addressInCoins = _.groupBy(lastConfirmedCoins, 'address');
 
