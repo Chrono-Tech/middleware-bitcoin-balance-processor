@@ -9,7 +9,7 @@ const getBalanceForAddress = require('../utils/getBalanceForAddress'),
   _ = require('lodash');
 
 
-module.exports = async (address, blockHeight, txs) => {
+module.exports = async (address, txs) => {
 
   const account = await accountModel.findOne({address: address});
   if (!account)

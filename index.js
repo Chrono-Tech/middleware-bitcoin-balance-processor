@@ -16,6 +16,7 @@ const  updateBalanceFromBlockService = require('./services/updateBalanceFromBloc
   updateBalanceFromTxService = require('./services/updateBalanceFromTxService'),
   bunyan = require('bunyan'),
   _ = require('lodash'),
+  UserCreatedService = require('./services/UserCreatedService'),
   log = bunyan.createLogger({name: 'core.balanceProcessor'}),
   amqp = require('amqplib');
 
@@ -44,6 +45,9 @@ let init = async () => {
     process.exit(0);
   });
 
+
+  const userCreatedService = new UserCreatedService(channel, config.rabbit.serviceName);
+  await userCreatedService.start();
 
   try {
     await channel.assertExchange('events', 'topic', {durable: false});
