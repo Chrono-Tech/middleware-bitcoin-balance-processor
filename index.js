@@ -66,7 +66,7 @@ let init = async () => {
       let payload = JSON.parse(data.content.toString());
 
       let updates = payload.txs ?
-        await updateBalanceFromTxService(payload.address, payload.block, payload.txs) :
+        await updateBalanceFromTxService(payload.address, payload.txs) :
         await updateBalanceFromBlockService(payload.block);
 
       for (let update of _.compact(updates)) {
