@@ -23,9 +23,7 @@
     "eslint": "^4.4.1",
     "eslint-plugin-chronobank": "github:chronobank/eslint-plugin-chronobank",
     "middleware-bitcoin-blockprocessor": "github:chronobank/middleware-bitcoin-blockprocessor",
-    "mocha": "^3.5.0",
-    "webstomp-client": "^1.2.0",
-    "ws": "^3.3.3"
+    "mocha": "^3.5.0"
   },
   "scripts": {
     "lint": "node ./node_modules/eslint/bin/eslint.js -c .eslintrc.js --ext .js --fix --ignore-path .eslintignore .",
