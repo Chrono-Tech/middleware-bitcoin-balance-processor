@@ -1,7 +1,13 @@
 const _ = require('lodash'),
   models = require('../../models');
 
-
+/**
+ * @function
+ * @description build full transaction object
+ * @param blockNumber - the transaction's block number
+ * @param index - the transaction's index in block
+ * @return {Promise<*>}
+ */
 module.exports = async (blockNumber, index) => {
 
   let tx = await models.txModel.findOne({blockNumber: blockNumber, index: index});
