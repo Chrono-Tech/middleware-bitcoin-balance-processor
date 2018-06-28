@@ -5,13 +5,15 @@
  */
 
 /**
- * Mongoose model. Represents a block in eth
+ * Mongoose model. Represents a coin in bitcoin
  * @module models/blockModel
  * @returns {Object} Mongoose model
  */
 
 const mongoose = require('mongoose'),
   config = require('../config');
+
+require('mongoose-long')(mongoose);
 
 const Coin = new mongoose.Schema({
   _id: {type: String},
@@ -21,7 +23,7 @@ const Coin = new mongoose.Schema({
   inputBlock: {type: Number},
   inputTxIndex: {type: Number},
   inputIndex: {type: Number},
-  value: {type: String},
+  value: {type: mongoose.Schema.Types.Long},
   address: {type: String}
 }, {_id: false});
 
@@ -30,4 +32,5 @@ Coin.index({inputBlock: 1, inputTxIndex: 1, inputIndex: 1});
 Coin.index({address: 1});
 
 
-module.exports = mongoose.model(`${config.mongo.data.collectionPrefix}Coin`, Coin);
+module.exports = () =>
+  mongoose.model(`${config.mongo.data.collectionPrefix}Coin`, Coin);

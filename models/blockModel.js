@@ -5,7 +5,7 @@
  */
 
 /**
- * Mongoose model. Represents a block in eth
+ * Mongoose model. Represents a block in bitcoin
  * @module models/blockModel
  * @returns {Object} Mongoose model
  */
@@ -22,4 +22,5 @@ const Block = new mongoose.Schema({
   created: {type: Date, required: true, default: Date.now}
 }, {_id: false});
 
-module.exports = mongoose.model(`${config.mongo.data.collectionPrefix}Block`, Block);
+module.exports = () =>
+  mongoose.model(`${config.mongo.data.collectionPrefix}Block`, Block);
