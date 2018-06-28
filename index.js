@@ -25,8 +25,7 @@ mongoose.accounts = mongoose.createConnection(config.mongo.accounts.uri, {useMon
 
 /**
  * @module entry point
- * @description update balances for addresses, which were specified
- * in received transactions from blockParser via amqp
+ * @description update balances for registered addresses
  */
 
 

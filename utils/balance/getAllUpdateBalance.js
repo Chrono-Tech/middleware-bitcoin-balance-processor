@@ -7,7 +7,12 @@
 const getBalance = require('./getBalance'),
   models = require('../../models');
 
-
+/**
+ * @function
+ * @description grab balance for 0,3 and 6 confirmations
+ * @param address - user address
+ * @return {Promise<{data: *[], address: *}>}
+ */
 module.exports = async (address) => {
 
   const block = await models.blockModel.findOne().sort({number: -1}).select('number');

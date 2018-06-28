@@ -6,7 +6,13 @@
 
 const getBalance = require('./getBalance');
 
-
+/**
+ * @function
+ * @description calculate current (unconfirmed) balance
+ * @param address - user address
+ * @param tx - the user's tx
+ * @return {Promise<{data: *[], address: *}>}
+ */
 module.exports = async (address, tx) => {
 
   const balance = await getBalance(address);
