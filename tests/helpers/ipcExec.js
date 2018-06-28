@@ -5,34 +5,115 @@
  */
 
 const Promise = require('bluebird'),
-  ipc = require('node-ipc'),
-  config = require('../config');
+  path = require('path'),
+  EventEmitter = require('events'),
+  uniqid = require('uniqid'),
+  ipc = require('node-ipc');
 
-module.exports = async (method, params) => {
+/**
+ * @service
+ * @param providerURI - the endpoint URI
+ * @description http provider for bitcoin node
+ */
 
-  Object.assign(ipc.config, {
-    id: Date.now(),
-    socketRoot: config.node.ipcPath,
-    retry: 1500,
-    sync: true,
-    silent: true,
-    unlink: false,
-    maxRetries: 3
-  });
+class IPCExec {
 
-  await new Promise(res => {
-    ipc.connectTo(config.node.ipcName, () => {
-      ipc.of[config.node.ipcName].on('connect', res);
+  constructor(providerURI) {
+    this._requests = {};
+    this.events = new EventEmitter();
+    this.ipcInstance = new ipc.IPC;
+    this.ipcPath = path.parse(providerURI);
+    Object.assign(this.ipcInstance.config, {
+      id: uniqid(),
+      socketRoot: `${this.ipcPath.dir}/`,
+      stopRetrying: true,
+      sync: false,
+      silent: true,
+      unlink: true
     });
-  });
+    this.connect();
+  }
 
-  let response = await new Promise((res, rej) => {
-    ipc.of[config.node.ipcName].on('message', data => data.error ? rej(data.error) : res(data.result));
-    ipc.of[config.node.ipcName].emit('message', JSON.stringify({method: method, params: params})
-    );
-  });
+  /**
+   * @function
+   * @description establish the connection with node
+   */
 
-  ipc.disconnect(config.node.ipcName);
+  connect() {
+    this.ipcInstance.connectTo(this.ipcPath.base);
 
-  return response;
-};
+    this.ipcInstance.of[this.ipcPath.base].on('disconnect', () => {
+      this.events.emit('disconnect');
+    });
+
+    this.ipcInstance.of[this.ipcPath.base].on('message', async data => {
+
+      if (!this._requests[data.id])
+        return;
+
+      if (!data.error) {
+        this._requests[data.id].callback(null, data.result);
+        delete this._requests[data.id];
+        return;
+      }
+
+      this._requests[data.id].callback(data.error);
+      delete this._requests[data.id];
+    });
+
+    this.ipcInstance.of[this.ipcPath.base].on('error', async err => {
+      for (let key of Object.keys(this._requests)) {
+        this._requests[key].callback(err);
+        delete this._requests[key];
+      }
+    });
+  }
+
+  /**
+   * @function
+   * @description disconnects the connection
+   */
+  disconnect() {
+    this.ipcInstance.disconnect(this.ipcPath.base);
+  }
+
+  /**
+   * @function
+   * @description is connection active
+   * @return {boolean}
+   */
+  connected() {
+    return !!this.ipcInstance.of[this.ipcPath.base];
+  }
+
+
+  /**
+   * @function
+   * @description execute the request
+   * @param method - the rpc method
+   * @param params - the params for the method
+   * @return {Promise<*>}
+   */
+  async execute(method, params) {
+
+    return new Promise((res, rej) => {
+      const requestId = uniqid();
+      this._requests[requestId] = {
+        callback: (err, result) => {
+          clearTimeout(this._requests[requestId].timeoutId);
+          err ? rej(err) : res(result);
+        },
+        timeoutId: setTimeout(() => rej({code: 4}), 30000)
+      };
+
+      this.ipcInstance.of[this.ipcPath.base].emit('message', JSON.stringify({
+        method: method,
+        params: params,
+        id: requestId
+      }));
+    });
+  }
+
+}
+
+module.exports = IPCExec;
