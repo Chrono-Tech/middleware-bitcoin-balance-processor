@@ -28,6 +28,14 @@ const sumNumbers = (sums) => {
     .value();
 };
 
+/**
+ * @function
+ * @description find coins up to the specified block and sum not spent coins
+ * @param address - user address
+ * @param blockNumber - the max blockNumber (optional argument)
+ * @return {Promise<*>}
+ */
+
 module.exports = async (address, blockNumber) => {
   const condition = {address: address};
 

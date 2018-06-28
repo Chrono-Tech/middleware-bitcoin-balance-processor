@@ -10,7 +10,13 @@ const Promise = require('bluebird'),
   models = require('../../models'),
   _ = require('lodash');
 
-
+/**
+ * @function
+ * @description find all addresses, calc their balances and also
+ * find their txs on 3 and 6 confirmations from the specified block height
+ * @param blockHeight - the current block number
+ * @return {Promise<Array>}
+ */
 module.exports = async (blockHeight) => {
 
 
