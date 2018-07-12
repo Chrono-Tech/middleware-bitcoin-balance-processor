@@ -184,11 +184,7 @@ describe('core/balanceProcessor', function () {
             let tx = await ctx.connector.execute('gettransaction', ctx.tx.txid()).catch(() => {
             });
 
-            if (!tx || !tx.confirmations)
-              tx = {confirmations: 0};
-
-            if (tx.confirmations === 0 || tx.confirmations === 1)
-              confirmations++;
+            confirmations++;
 
             if (confirmations === 2)
               res();
