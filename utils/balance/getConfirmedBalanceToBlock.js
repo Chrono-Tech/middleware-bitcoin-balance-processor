@@ -66,6 +66,19 @@ module.exports = async (blockHeight) => {
   });
 
 
-  return _.compact(balanceChanges);
+  return {
+    data: _.chain(balanceChanges)
+      .compact()
+      .map(item =>
+        item.txs.map(tx=>({
+          tx: tx,
+          balances: item.balances,
+          address: item.address
+        }))
+      )
+      .flattenDeep()
+      .value()
+  };
+
 
 };

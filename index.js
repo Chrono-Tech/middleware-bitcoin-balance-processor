@@ -71,9 +71,9 @@ let init = async () => {
         updates = await getConfirmedBalanceToBlock(payload.block);
 
       if((!payload.block && !payload.hash) || payload.hash){
-          let isExist = await models.accountModel.count({address: addr});
-          if (!isExist)
-              return channel.ack(data);
+        let isExist = await models.accountModel.count({address: addr});
+        if (!isExist)
+          return channel.ack(data);
       }
 
       if (payload.hash)
@@ -92,12 +92,12 @@ let init = async () => {
         account.save();
 
         if(update.data.length)
-        for (let item of update.data)
-          await channel.publish('events', `${config.rabbit.serviceName}_balance.${update.address}`, new Buffer(JSON.stringify({
-            address: update.address,
-            balances: item.balances,
-            tx: item.tx
-          })));
+          for (let item of update.data)
+            await channel.publish('events', `${config.rabbit.serviceName}_balance.${update.address}`, new Buffer(JSON.stringify({
+              address: update.address,
+              balances: item.balances,
+              tx: item.tx
+            })));
         log.info(`balance updated for ${update.address}`);
       }
     } catch (err) {
