@@ -6,7 +6,7 @@ Middleware service for handling user balance
 
 This module is a part of middleware services. You can install it in 2 ways:
 
-1) through core middleware installer  [middleware installer](https://github.com/ChronoBank/middleware-bitcoin)
+1) through core middleware installer  [middleware installer](https://github.com/ChronoBank/middleware)
 2) by hands: just clone the repo, do 'npm install', set your .env - and you are ready to go
 
 ##### About
@@ -26,16 +26,17 @@ This middleware get two type events from middleware bitcoin-block-processor
 
 Input events:
 
-| name queue | format message |
-| ------ | ------- | 
-| ``` <rabbitmq_service_name>_transaction.* ``` | ``` {address: <String>, block: <String>, txs: [<String>]} ```
-| ``` <rabbitmq_service_name>_block ``` | ``` {block: <String>} ```
+| exchange | route | format message |
+| ------ | ------- | ------- |
+| events | ``` <rabbitmq_service_name>_transaction.* ``` | ``` {address: <String>, block: <String>, txs: [<String>]} ```
+| events | ``` <rabbitmq_service_name>_block ``` | ``` {block: <String>} ```
+| internal | ``` <rabbitmq_service_name>_user.created ``` | ``` {address: <String>} ```
 
 Output events:
 
 | name queue | format message | example |
 | ------- | --------- | ----------- |
-| ``` <rabbitmq_service_name>_balance.{address} ``` | ``` {address: <String>, balances: {confirmations0: <Number>, confirmations3: <Number>, confirmations6: <Number> }, tx: <String>} ``` | ``` { address: 'RUpuMAB1qLZK2ptV43kxMU5kcvyLogdx8R', balances: { confirmations0: 14999986960, confirmations3: 5000000000, confirmations6: 0 }, tx: '0db07f3ec23ee5f56aee88029fdb5d7284d3078c8b433eac157a075f8d8d842c' } ```
+| ``` <rabbitmq_service_name>_balance.{address} ``` | ``` {address: <String>, balances: {confirmations0: <Number>, confirmations3: <Number>, confirmations6: <Number> }, tx: <String>} ``` | ``` { address: 'RUpuMAB1qLZK2ptV43kxMU5kcvyLogdx8R', balances: { confirmations0: 14999986960, confirmations3: 5000000000, confirmations6: 0 }, tx: {"index": 23, "timestamp": 1529924020180, "blockNumber": 1326321, "hash": "640abc80ef8efff8bfdbc70362ae4534b11f3944bc9bd983abd37e879f433823", "inputs": [{"address": "n3QSvYFjS6q5gfxq7hEk8qp2y3LuH1nLnA", "value": "376687"}], "outputs": [{"address": "2N2Xgg1HvQEMJTUZYkQ3apNik9gq8pPvyFB", "value": "324487"}], "confirmations": 0}  ```
 
 
 
@@ -49,8 +50,6 @@ MONGO_URI=mongodb://localhost:27017/data
 MONGO_COLLECTION_PREFIX=bitcoin
 RABBIT_URI=amqp://localhost:5672
 RABBIT_SERVICE_NAME=app_bitcoin
-IPC_NAME=bitcoin
-IPC_PATH=/tmp/
 ```
 
 The options are presented below:
@@ -58,11 +57,13 @@ The options are presented below:
 | name | description|
 | ------ | ------ |
 | MONGO_URI   | the URI string for mongo connection
-| MONGO_COLLECTION_PREFIX   | the prefix name for all created collections, like for Account model - it will be called (in our case) BitcoinAccount
+| MONGO_COLLECTION_PREFIX   | the default prefix for all mongo collections. The default value is 'bitcoin'
+| MONGO_ACCOUNTS_URI   | the URI string for mongo connection, which holds users accounts (if not specified, then default MONGO_URI connection will be used)
+| MONGO_ACCOUNTS_COLLECTION_PREFIX   | the collection prefix for accounts collection in mongo (If not specified, then the default MONGO_COLLECTION_PREFIX will be used)
+| MONGO_DATA_URI   | the URI string for mongo connection, which holds data collections (for instance, processed block's height). In case, it's not specified, then default MONGO_URI connection will be used)
+| MONGO_DATA_COLLECTION_PREFIX   | the collection prefix for data collections in mongo (If not specified, then the default MONGO_COLLECTION_PREFIX will be used)
 | RABBIT_URI   | rabbitmq URI connection string
 | RABBIT_SERVICE_NAME   | rabbitmq queues prefix
-| IPC_NAME   | ipc file name
-| IPC_PATH   | directory, where to store ipc file (you can skip this option on windows)
 
 License
 ----

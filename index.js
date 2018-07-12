@@ -6,100 +6,108 @@
 
 const config = require('./config'),
   mongoose = require('mongoose'),
-  Promise = require('bluebird');
+  Promise = require('bluebird'),
+  getConfirmedBalanceToBlock = require('./utils/balance/getConfirmedBalanceToBlock'),
+  getUnconfirmedBalance = require('./utils/balance/getUnconfirmedBalance'),
+  getAllUpdateBalance = require('./utils/balance/getAllUpdateBalance'),
+  bunyan = require('bunyan'),
+  _ = require('lodash'),
+  models = require('./models'),
+  log = bunyan.createLogger({name: 'core.balanceProcessor'}),
+  amqp = require('amqplib');
+
+const TX_QUEUE = `${config.rabbit.serviceName}_transaction`;
 
 mongoose.Promise = Promise;
 mongoose.connect(config.mongo.data.uri, {useMongoClient: true});
 mongoose.accounts = mongoose.createConnection(config.mongo.accounts.uri, {useMongoClient: true});
-  
-const  updateBalanceFromBlockService = require('./services/updateBalanceFromBlockService'),
-  updateBalanceFromTxService = require('./services/updateBalanceFromTxService'),
-  bunyan = require('bunyan'),
-  _ = require('lodash'),
-  UserCreatedService = require('./services/UserCreatedService'),
-  log = bunyan.createLogger({name: 'core.balanceProcessor'}),
-  amqp = require('amqplib');
+
 
 /**
  * @module entry point
- * @description update balances for addresses, which were specified
- * in received transactions from blockParser via amqp
+ * @description update balances for registered addresses
  */
-[mongoose.accounts, mongoose.connection].forEach(connection =>
-  connection.on('disconnected', function () {
-    log.error('mongo disconnected!');
-    process.exit(0);
-  })
-);
+
 
 let init = async () => {
-  let conn = await amqp.connect(config.rabbit.url)
-    .catch(() => {
-      log.error('rabbitmq is not available!');
-      process.exit(0);
-    });
+
+  models.init();
+
+  [mongoose.accounts, mongoose.connection].forEach(connection =>
+    connection.on('disconnected', function () {
+      throw new Error('mongo disconnected!');
+    })
+  );
+
+
+  let conn = await amqp.connect(config.rabbit.url);
   let channel = await conn.createChannel();
 
   channel.on('close', () => {
-    log.error('rabbitmq process has finished!');
-    process.exit(0);
+    throw new Error('rabbitmq process has finished!');
   });
 
 
-  const userCreatedService = new UserCreatedService(channel, config.rabbit.serviceName);
-  await userCreatedService.start();
+  await channel.assertExchange('events', 'topic', {durable: false});
+  await channel.assertExchange('internal', 'topic', {durable: false});
 
-  try {
-    await channel.assertExchange('events', 'topic', {durable: false});
-    await channel.assertQueue(`app_${config.rabbit.serviceName}.balance_processor`);
-    await channel.bindQueue(`app_${config.rabbit.serviceName}.balance_processor`, 'events', `${config.rabbit.serviceName}_transaction.*`);
-    await channel.bindQueue(`app_${config.rabbit.serviceName}.balance_processor`, 'events', `${config.rabbit.serviceName}_block`);
-  } catch (e) {
-    log.error(e);
-    channel = await conn.createChannel();
-  }
+  await channel.assertQueue(`${config.rabbit.serviceName}.balance_processor`);
+  await channel.bindQueue(`${config.rabbit.serviceName}.balance_processor`, 'events', `${TX_QUEUE}.*`);
+  await channel.bindQueue(`${config.rabbit.serviceName}.balance_processor`, 'events', `${config.rabbit.serviceName}_block`);
+  await channel.bindQueue(`${config.rabbit.serviceName}.balance_processor`, 'internal', `${config.rabbit.serviceName}_user.created`);
+
 
   channel.prefetch(2);
-  channel.consume(`app_${config.rabbit.serviceName}.balance_processor`, async data => {
+
+  channel.consume(`${config.rabbit.serviceName}.balance_processor`, async data => {
 
     try {
       let payload = JSON.parse(data.content.toString());
+      const addr = data.fields.routingKey.slice(TX_QUEUE.length + 1) || payload.address;
 
-      let updates = payload.txs ?
-        await updateBalanceFromTxService(payload.address, payload.txs) :
-        await updateBalanceFromBlockService(payload.block);
+      let account = await models.accountModel.findOne({address: addr});
+
+      if (!account)
+        return channel.ack(data);
+
+      let updates = {};
+
+      if (payload.block)
+        updates = await getConfirmedBalanceToBlock(payload.block);
+
+      if (payload.hash)
+        updates = [await getUnconfirmedBalance(addr, payload.hash ? payload : null)];
+
+      if (!payload.block && !payload.hash)
+        updates = [await getAllUpdateBalance(addr)];
+
 
       for (let update of _.compact(updates)) {
-        for (let item of update.data) {
-          await channel.publish('events', `${config.rabbit.serviceName}_balance.${payload.address}`, new Buffer(JSON.stringify({
+
+        const balances = _.transform(update.data, (result, item) => _.merge(result, item.balances), {});
+        _.merge(account.balances, balances);
+        account.markModified('balances');
+        account.save();
+
+        for (let item of update.data)
+          await channel.publish('events', `${config.rabbit.serviceName}_balance.${item.address}`, new Buffer(JSON.stringify({
             address: update.address,
             balances: item.balances,
             tx: item.tx
           })));
-        }
         log.info(`balance updated for ${update.address}`);
       }
-      channel.ack(data);
     } catch (err) {
-
-      if (err instanceof Promise.TimeoutError) {
-        log.error('Timeout processing the request. Restarting in 5 seconds...');
-        await Promise.delay(5000);
-        return process.exit(0);
-      }
-
-      if (err && err.code === 'ENOENT') {
-        log.error('Node is not available. Restarting in 5 seconds...');
-        await Promise.delay(5000);
-        return process.exit(0);
-      }
-
-      channel.ack(data);
       log.error(err);
+      return channel.nack(data);
     }
 
+    channel.ack(data);
   });
 
 };
 
-module.exports = init();
+module.exports = init().catch(err => {
+  log.error(err);
+  process.exit(0);
+});

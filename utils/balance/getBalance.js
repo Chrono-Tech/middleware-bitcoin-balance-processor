@@ -4,7 +4,7 @@
  * @author Kirill Sergeev <cloudkserg11@gmail.com>
  */
 
-const coinModel = require('../models/coinModel'),
+const models = require('../../models'),
   Promise = require('bluebird'),
   BigNumber = require('bignumber.js'),
   _ = require('lodash');
@@ -28,14 +28,31 @@ const sumNumbers = (sums) => {
     .value();
 };
 
+/**
+ * @function
+ * @description find coins up to the specified block and sum not spent coins
+ * @param address - user address
+ * @param blockNumber - the max blockNumber (optional argument)
+ * @return {Promise<*>}
+ */
+
 module.exports = async (address, blockNumber) => {
-  const condition = {address, inputBlock: {$exists: false}};
-  if (blockNumber)
-    condition.outputBlock = {$lte: blockNumber};
-  const countCoins = await coinModel.count(condition);
+  const condition = {address: address};
+
+  blockNumber ?
+    _.merge(condition, {
+      outputBlock: {$lte: blockNumber},
+      $or: [
+        {inputBlock: {$exists: false}},
+        {inputBlock: {$gt: blockNumber}}
+      ]
+    }) : _.merge(condition, {inputBlock: {$exists: false}});
+
+
+  const countCoins = await models.coinModel.count(condition);
 
   const sums = await Promise.mapSeries(_.range(0, countCoins, LIMIT), async startCoin => {
-    const coins = await coinModel.find(condition).select('value').skip(startCoin).limit(LIMIT);
+    const coins = await models.coinModel.find(condition).select('value').skip(startCoin).limit(LIMIT);
     return sumCoins(coins);
   });
 
