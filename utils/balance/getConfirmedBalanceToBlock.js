@@ -66,19 +66,14 @@ module.exports = async (blockHeight) => {
   });
 
 
-  return {
-    data: _.chain(balanceChanges)
-      .compact()
-      .map(item =>
-        item.txs.map(tx=>({
-          tx: tx,
-          balances: item.balances,
-          address: item.address
-        }))
-      )
-      .flattenDeep()
-      .value()
-  };
+  return _.chain(balanceChanges)
+    .compact()
+    .transform((result, item) =>
+      result.push({
+        address: item.address,
+        data: _.map(item.txs, tx => _.merge({}, {tx: tx, balances: item.balances}))
+      }),[]
+    ).value();
 
 
 };
