@@ -181,9 +181,6 @@ describe('core/balanceProcessor', function () {
             if (_.get(message, 'tx.hash' !== ctx.tx.txid()))
               return;
 
-            let tx = await ctx.connector.execute('gettransaction', ctx.tx.txid()).catch(() => {
-            });
-
             confirmations++;
 
             if (confirmations === 2)
@@ -193,6 +190,7 @@ describe('core/balanceProcessor', function () {
         );
       })(),
       (async () => {
+        await Promise.delay(5000);
         await ctx.connector.execute('sendrawtransaction', [ctx.tx.toRaw().toString('hex')]);
         for (let i = 0; i < 5; i++)
           await ctx.connector.execute('generatetoaddress', [6, keyring2.getAddress().toString()]);
