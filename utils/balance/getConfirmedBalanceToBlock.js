@@ -66,6 +66,14 @@ module.exports = async (blockHeight) => {
   });
 
 
-  return _.compact(balanceChanges);
+  return _.chain(balanceChanges)
+    .compact()
+    .transform((result, item) =>
+      result.push({
+        address: item.address,
+        data: _.map(item.txs, tx => _.merge({}, {tx: tx, balances: item.balances}))
+      }),[]
+    ).value();
+
 
 };

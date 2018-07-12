@@ -65,15 +65,16 @@ let init = async () => {
       let payload = JSON.parse(data.content.toString());
       const addr = data.fields.routingKey.slice(TX_QUEUE.length + 1) || payload.address;
 
-      let account = await models.accountModel.findOne({address: addr});
-
-      if (!account)
-        return channel.ack(data);
-
       let updates = {};
 
       if (payload.block)
         updates = await getConfirmedBalanceToBlock(payload.block);
+
+      if((!payload.block && !payload.hash) || payload.hash){
+        let isExist = await models.accountModel.count({address: addr});
+        if (!isExist)
+          return channel.ack(data);
+      }
 
       if (payload.hash)
         updates = [await getUnconfirmedBalance(addr, payload.hash ? payload : null)];
@@ -84,17 +85,19 @@ let init = async () => {
 
       for (let update of _.compact(updates)) {
 
+        let account = await models.accountModel.findOne({address: update.address});
         const balances = _.transform(update.data, (result, item) => _.merge(result, item.balances), {});
         _.merge(account.balances, balances);
         account.markModified('balances');
         account.save();
 
-        for (let item of update.data)
-          await channel.publish('events', `${config.rabbit.serviceName}_balance.${update.address}`, new Buffer(JSON.stringify({
-            address: update.address,
-            balances: item.balances,
-            tx: item.tx
-          })));
+        if(update.data.length)
+          for (let item of update.data)
+            await channel.publish('events', `${config.rabbit.serviceName}_balance.${update.address}`, new Buffer(JSON.stringify({
+              address: update.address,
+              balances: item.balances,
+              tx: item.tx
+            })));
         log.info(`balance updated for ${update.address}`);
       }
     } catch (err) {
