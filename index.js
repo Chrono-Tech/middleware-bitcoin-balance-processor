@@ -90,7 +90,7 @@ let init = async () => {
         account.save();
 
         for (let item of update.data)
-          await channel.publish('events', `${config.rabbit.serviceName}_balance.${item.address}`, new Buffer(JSON.stringify({
+          await channel.publish('events', `${config.rabbit.serviceName}_balance.${update.address}`, new Buffer(JSON.stringify({
             address: update.address,
             balances: item.balances,
             tx: item.tx
