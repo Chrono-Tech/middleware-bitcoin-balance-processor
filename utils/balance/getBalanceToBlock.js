@@ -20,7 +20,13 @@ const Promise = require('bluebird'),
 module.exports = async (blockHeight) => {
 
 
-  const lastConfirmedCoins = await models.coinModel.find({outputBlock: {$in: [blockHeight - 2, blockHeight - 5]}});
+  const lastConfirmedCoins = await models.coinModel.find({
+    $or: [
+      {outputBlock: {$in: [blockHeight - 2, blockHeight - 5]}},
+      {inputBlock: {$in: [blockHeight - 2, blockHeight - 5]}}
+    ]
+
+  });
 
   const addressInCoins = _.groupBy(lastConfirmedCoins, 'address');
 
@@ -47,8 +53,11 @@ module.exports = async (blockHeight) => {
       .uniqWith(_.isEqual)
       .value();
 
+    result.balances.confirmations0 = await getBalance(result.address);
+
+
     if (!outputsConfirmations3 && !outputsConfirmations6)
-      return;
+      return result;
 
     if (outputsConfirmations3.length) {
       result.balances.confirmations3 = await getBalance(result.address, blockHeight - 2);
