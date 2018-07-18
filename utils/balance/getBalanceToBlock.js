@@ -19,13 +19,28 @@ const Promise = require('bluebird'),
  */
 module.exports = async (blockHeight) => {
 
-
-  const lastConfirmedCoins = await models.coinModel.find({
+  let lastConfirmedCoins = await models.coinModel.find({
     $or: [
       {outputBlock: {$in: [blockHeight - 2, blockHeight - 5]}},
       {inputBlock: {$in: [blockHeight - 2, blockHeight - 5]}}
     ]
 
+  });
+
+  lastConfirmedCoins = lastConfirmedCoins.map(coin => {
+
+    if (![blockHeight - 2, blockHeight - 5].includes(coin.outputBlock))
+      return {
+        block: coin.inputBlock,
+        index: coin.inputTxIndex,
+        address: coin.address
+      };
+
+    return {
+      block: coin.outputBlock,
+      index: coin.outputTxIndex,
+      address: coin.address
+    };
   });
 
   const addressInCoins = _.groupBy(lastConfirmedCoins, 'address');
@@ -43,13 +58,13 @@ module.exports = async (blockHeight) => {
 
     let coins = item[1];
 
-    let outputsConfirmations3 = _.chain(coins).filter({outputBlock: blockHeight - 2})
-      .map(coin => ({outputBlock: coin.outputBlock, outputTxIndex: coin.outputTxIndex}))
+    let outputsConfirmations3 = _.chain(coins).filter({block: blockHeight - 2})
+      .map(coin => ({block: coin.block, index: coin.index}))
       .uniqWith(_.isEqual)
       .value();
 
-    let outputsConfirmations6 = _.chain(coins).filter({outputBlock: blockHeight - 5})
-      .map(coin => ({outputBlock: coin.outputBlock, outputTxIndex: coin.outputTxIndex}))
+    let outputsConfirmations6 = _.chain(coins).filter({block: blockHeight - 5})
+      .map(coin => ({block: coin.block, index: coin.index}))
       .uniqWith(_.isEqual)
       .value();
 
@@ -61,13 +76,13 @@ module.exports = async (blockHeight) => {
 
     if (outputsConfirmations3.length) {
       result.balances.confirmations3 = await getBalance(result.address, blockHeight - 2);
-      let confirmation3Txs = await Promise.map(outputsConfirmations3, async coin => await getFullTxFromCache(coin.outputBlock, coin.outputTxIndex));
+      let confirmation3Txs = await Promise.map(outputsConfirmations3, async coin => await getFullTxFromCache(coin.block, coin.index));
       result.txs.push(..._.compact(confirmation3Txs));
     }
 
     if (outputsConfirmations6.length) {
       result.balances.confirmations6 = await getBalance(result.address, blockHeight - 5);
-      let confirmation6Txs = await Promise.map(outputsConfirmations6, async coin => await getFullTxFromCache(coin.outputBlock, coin.outputTxIndex));
+      let confirmation6Txs = await Promise.map(outputsConfirmations6, async coin => await getFullTxFromCache(coin.block, coin.index));
       result.txs.push(..._.compact(confirmation6Txs));
     }
 
@@ -81,7 +96,7 @@ module.exports = async (blockHeight) => {
       result.push({
         address: item.address,
         data: _.map(item.txs, tx => _.merge({}, {tx: tx, balances: item.balances}))
-      }),[]
+      }), []
     ).value();
 
 

@@ -25,6 +25,8 @@ module.exports = (ctx) => {
     await models.accountModel.remove({});
 
     //ctx.balanceProcessorPid = spawn('node', ['node.js'], {env: process.env, stdio: 'ignore'});
+
+    await ctx.amqp.channel.deleteQueue(`${config.rabbit.serviceName}.balance_processor`);
     ctx.balanceProcessorPid = spawn('node', ['index.js'], {env: process.env, stdio: 'inherit'});
 
     let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
@@ -135,52 +137,55 @@ module.exports = (ctx) => {
 
   });
 
-  it('validate balance change on block arrive', async () => {
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+  /*
+    it('validate balance change on block arrive', async () => {
+      let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
+      const address = keyring.getAddress().toString();
 
-    let block = await models.blockModel.find({}).sort({number: -1}).limit(1);
+      let block = await models.blockModel.find({}).sort({number: -1}).limit(1);
 
-    block = block[0].number;
-    let confirmations = 0;
+      block = block[0].number;
 
-    await Promise.all([
-      (async () => {
+      await Promise.all([
+        (async () => {
+          await ctx.amqp.channel.publish('events', `${config.rabbit.serviceName}_block`, new Buffer(JSON.stringify({block: block})));
+        })(),
+        (async () => {
+          await ctx.amqp.channel.assertQueue(`app_${config.rabbit.serviceName}_test_features.balance`);
+          await ctx.amqp.channel.bindQueue(`app_${config.rabbit.serviceName}_test_features.balance`, 'events', `${config.rabbit.serviceName}_balance.${address}`);
+          await new Promise((res, rej) =>
+            ctx.amqp.channel.consume(`app_${config.rabbit.serviceName}_test_features.balance`, async data => {
 
-        await ctx.amqp.channel.publish('events', `${config.rabbit.serviceName}_block`, new Buffer(JSON.stringify({block: block})));
-      })(),
-      (async () => {
-        await ctx.amqp.channel.assertQueue(`app_${config.rabbit.serviceName}_test_features.balance`);
-        await ctx.amqp.channel.bindQueue(`app_${config.rabbit.serviceName}_test_features.balance`, 'events', `${config.rabbit.serviceName}_balance.${address}`);
-        await new Promise((res, rej) =>
-          ctx.amqp.channel.consume(`app_${config.rabbit.serviceName}_test_features.balance`, async data => {
+              if (!data)
+                return;
 
-            if (!data)
-              return;
+              const message = JSON.parse(data.content.toString());
 
-            const message = JSON.parse(data.content.toString());
+              if (message.tx.confirmations !== 3 && message.tx.confirmations !== 6)
+                rej();
 
-            if (message.tx.confirmations !== 3 && message.tx.confirmations !== 6)
-              rej();
+              if (ctx.tx.hash === message.tx.hash)
+                res();
 
-            if (confirmations > 1)
-              res();
+              confirmations++;
 
-            confirmations++;
+              await ctx.amqp.channel.deleteQueue(`app_${config.rabbit.serviceName}_test_features.balance`);
+            }, {noAck: true})
+          );
 
-            await ctx.amqp.channel.deleteQueue(`app_${config.rabbit.serviceName}_test_features.balance`);
-          }, {noAck: true})
-        );
+        })()
+      ]);
 
-      })()
-    ]);
-
-  });
+    });
+  */
 
   it('generate unconfirmed coin for accountB', async () => {
 
-    let keyring = new bcoin.keyring(ctx.keyPair2, ctx.network);
+    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
+    let keyring2 = new bcoin.keyring(ctx.keyPair2, ctx.network);
+
     const address = keyring.getAddress().toString();
+    const address2 = keyring2.getAddress().toString();
 
     ctx.coins = [];
     ctx.txs = [];
@@ -202,14 +207,15 @@ module.exports = (ctx) => {
         outputTxIndex: i,
         outputIndex: i,
         value: _.random(1000, 4000),
-        address: address
+        address: address2
       };
 
-      if (_.random(0, 10) > 5) {
-        coin.inputBlock = 1000 - _.shuffle(10, 100);
-        coin.inputTxIndex = i;
-        coin.inputIndex = i;
-      }
+      await models.coinModel.update({address: address, outputBlock: {$lt: _.random(10, 100)}, outputTxIndex: coin.outputTxIndex}, {
+        $set: {
+          inputBlock: -1,
+          inputTxIndex: coin.outputTxIndex
+        }
+      });
 
       ctx.coins.push(coin);
 
@@ -226,21 +232,23 @@ module.exports = (ctx) => {
   });
 
   it('validate balance change on unconfirmed tx', async () => {
-    let keyring = new bcoin.keyring(ctx.keyPair2, ctx.network);
-    const address = keyring.getAddress().toString();
+    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
+    let keyring2 = new bcoin.keyring(ctx.keyPair2, ctx.network);
 
-    let tx;
+    const address = keyring.getAddress().toString();
+    const address2 = keyring2.getAddress().toString();
 
     await Promise.all([
       (async () => {
-        const coin = await models.coinModel.findOne({outputBlock: -1, address: address});
-        tx = await models.txModel.findOne({blockNumber: -1, index: coin.outputTxIndex});
-        tx = await getFullTxFromCache(tx._id);
-        await ctx.amqp.channel.publish('events', `${config.rabbit.serviceName}_transaction.${address}`, new Buffer(JSON.stringify(tx)));
+        const coin = await models.coinModel.findOne({outputBlock: -1, address: address2});
+        ctx.tx = await models.txModel.findOne({blockNumber: -1, index: coin.outputTxIndex});
+        ctx.tx = await getFullTxFromCache(ctx.tx._id);
+        await ctx.amqp.channel.publish('events', `${config.rabbit.serviceName}_transaction.${address}`, new Buffer(JSON.stringify(ctx.tx)));
+        await ctx.amqp.channel.publish('events', `${config.rabbit.serviceName}_transaction.${address2}`, new Buffer(JSON.stringify(ctx.tx)));
       })(),
       (async () => {
         await ctx.amqp.channel.assertQueue(`app_${config.rabbit.serviceName}_test_features.balance`);
-        await ctx.amqp.channel.bindQueue(`app_${config.rabbit.serviceName}_test_features.balance`, 'events', `${config.rabbit.serviceName}_balance.${address}`);
+        await ctx.amqp.channel.bindQueue(`app_${config.rabbit.serviceName}_test_features.balance`, 'events', `${config.rabbit.serviceName}_balance.${address2}`);
         await new Promise(res =>
           ctx.amqp.channel.consume(`app_${config.rabbit.serviceName}_test_features.balance`, async data => {
 
@@ -249,7 +257,7 @@ module.exports = (ctx) => {
 
             const message = JSON.parse(data.content.toString());
 
-            expect(_.isEqual(JSON.parse(JSON.stringify(tx)), message.tx)).to.equal(true);
+            expect(_.isEqual(JSON.parse(JSON.stringify(ctx.tx)), message.tx)).to.equal(true);
             expect(message.balances.confirmations0).to.equal(ctx.balance);
             expect(message.balances.confirmations3).to.equal(0);
             expect(message.balances.confirmations6).to.equal(0);
@@ -259,48 +267,64 @@ module.exports = (ctx) => {
           }, {noAck: true})
         );
 
+      })(),
+      (async () => {
+        await ctx.amqp.channel.assertQueue(`app_${config.rabbit.serviceName}_test_features2.balance`);
+        await ctx.amqp.channel.bindQueue(`app_${config.rabbit.serviceName}_test_features2.balance`, 'events', `${config.rabbit.serviceName}_balance.${address}`);
+        await new Promise(res =>
+          ctx.amqp.channel.consume(`app_${config.rabbit.serviceName}_test_features2.balance`, async data => {
+
+            if (!data)
+              return;
+
+            const message = JSON.parse(data.content.toString());
+
+            expect(_.isEqual(JSON.parse(JSON.stringify(ctx.tx)), message.tx)).to.equal(true);
+            await ctx.amqp.channel.deleteQueue(`app_${config.rabbit.serviceName}_test_features2.balance`);
+            res();
+          }, {noAck: true})
+        );
+
       })()
     ]);
 
   });
 
+  it('validate balance change after 3 blocks (3 confirmations)', async () => {
+    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
+    let keyring2 = new bcoin.keyring(ctx.keyPair2, ctx.network);
 
-  it('validate balance change on block arrive', async () => {
-    let keyring = new bcoin.keyring(ctx.keyPair2, ctx.network);
     const address = keyring.getAddress().toString();
+    const address2 = keyring2.getAddress().toString();
 
     let block = await models.blockModel.find({}).sort({number: -1}).limit(1);
-
     block = block[0].number;
-
     const includeBlock = block + 1;
-
-    for (let i = includeBlock; i < includeBlock + 3; i++) {
-      await models.blockModel.create({
-        _id: uniqid(),
-        number: i,
-        timestamp: Date.now(),
-        bits: 1024,
-        merkleRoot: uniqid()
-      });
-
-      block = i;
-
-      if (i === includeBlock) {
-        await models.txModel.update({blockNumber: -1}, {$set: {blockNumber: includeBlock}}, {multi: true});
-        await models.coinModel.update({outputBlock: -1}, {$set: {outputBlock: includeBlock}}, {multi: true});
-        await models.coinModel.update({inputBlock: -1}, {$set: {inputBlock: includeBlock}}, {multi: true});
-      }
-    }
 
     await Promise.all([
       (async () => {
 
-        await ctx.amqp.channel.publish('events', `${config.rabbit.serviceName}_block`, new Buffer(JSON.stringify({block: block})));
+        for (let currentBlock = includeBlock; currentBlock < includeBlock + 3; currentBlock++) {
+          await models.blockModel.create({
+            _id: uniqid(),
+            number: currentBlock,
+            timestamp: Date.now(),
+            bits: 1024,
+            merkleRoot: uniqid()
+          });
+
+          if (currentBlock === includeBlock) {
+            await models.txModel.update({blockNumber: -1}, {$set: {blockNumber: includeBlock}}, {multi: true});
+            await models.coinModel.update({outputBlock: -1}, {$set: {outputBlock: includeBlock}}, {multi: true});
+            await models.coinModel.update({inputBlock: -1}, {$set: {inputBlock: includeBlock}}, {multi: true});
+          }
+          await ctx.amqp.channel.publish('events', `${config.rabbit.serviceName}_block`, new Buffer(JSON.stringify({block: currentBlock})));
+          await Promise.delay(5000);
+        }
       })(),
       (async () => {
         await ctx.amqp.channel.assertQueue(`app_${config.rabbit.serviceName}_test_features.balance`);
-        await ctx.amqp.channel.bindQueue(`app_${config.rabbit.serviceName}_test_features.balance`, 'events', `${config.rabbit.serviceName}_balance.${address}`);
+        await ctx.amqp.channel.bindQueue(`app_${config.rabbit.serviceName}_test_features.balance`, 'events', `${config.rabbit.serviceName}_balance.${address2}`);
         await new Promise((res, rej) =>
           ctx.amqp.channel.consume(`app_${config.rabbit.serviceName}_test_features.balance`, async data => {
 
@@ -312,12 +336,124 @@ module.exports = (ctx) => {
             if (message.tx.confirmations !== 3)
               return rej();
 
+            if (message.tx.hash !== ctx.tx.hash)
+              return;
+
             expect(message.balances.confirmations0).to.equal(ctx.balance);
             expect(message.balances.confirmations3).to.equal(ctx.balance);
             expect(message.balances.confirmations6).to.equal(0);
 
-            res();
             await ctx.amqp.channel.deleteQueue(`app_${config.rabbit.serviceName}_test_features.balance`);
+            res();
+          }, {noAck: true})
+        );
+
+      })(),
+      (async () => {
+        await ctx.amqp.channel.assertQueue(`app_${config.rabbit.serviceName}_test_features2.balance`);
+        await ctx.amqp.channel.bindQueue(`app_${config.rabbit.serviceName}_test_features2.balance`, 'events', `${config.rabbit.serviceName}_balance.${address}`);
+        await new Promise((res, rej) =>
+          ctx.amqp.channel.consume(`app_${config.rabbit.serviceName}_test_features2.balance`, async data => {
+
+            if (!data)
+              return;
+
+            const message = JSON.parse(data.content.toString());
+
+            if (message.tx.confirmations !== 3 && message.tx.confirmations !== 6)
+              return rej();
+
+            if (message.tx.hash !== ctx.tx.hash)
+              return;
+
+            await ctx.amqp.channel.deleteQueue(`app_${config.rabbit.serviceName}_test_features2.balance`);
+            res();
+          }, {noAck: true})
+        );
+
+      })()
+    ]);
+
+  });
+
+  it('validate balance change after 6 blocks (6 confirmations)', async () => {
+    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
+    let keyring2 = new bcoin.keyring(ctx.keyPair2, ctx.network);
+
+    const address = keyring.getAddress().toString();
+    const address2 = keyring2.getAddress().toString();
+
+    let block = await models.blockModel.find({}).sort({number: -1}).limit(1);
+    block = block[0].number;
+    const includeBlock = block + 1;
+
+    await Promise.all([
+      (async () => {
+
+        for (let currentBlock = includeBlock; currentBlock < includeBlock + 3; currentBlock++) {
+          await models.blockModel.create({
+            _id: uniqid(),
+            number: currentBlock,
+            timestamp: Date.now(),
+            bits: 1024,
+            merkleRoot: uniqid()
+          });
+
+          if (currentBlock === includeBlock) {
+            await models.txModel.update({blockNumber: -1}, {$set: {blockNumber: includeBlock}}, {multi: true});
+            await models.coinModel.update({outputBlock: -1}, {$set: {outputBlock: includeBlock}}, {multi: true});
+            await models.coinModel.update({inputBlock: -1}, {$set: {inputBlock: includeBlock}}, {multi: true});
+          }
+          await ctx.amqp.channel.publish('events', `${config.rabbit.serviceName}_block`, new Buffer(JSON.stringify({block: currentBlock})));
+          await Promise.delay(5000);
+        }
+      })(),
+      (async () => {
+        await ctx.amqp.channel.assertQueue(`app_${config.rabbit.serviceName}_test_features.balance`);
+        await ctx.amqp.channel.bindQueue(`app_${config.rabbit.serviceName}_test_features.balance`, 'events', `${config.rabbit.serviceName}_balance.${address2}`);
+        await new Promise((res, rej) =>
+          ctx.amqp.channel.consume(`app_${config.rabbit.serviceName}_test_features.balance`, async data => {
+
+            if (!data)
+              return;
+
+            const message = JSON.parse(data.content.toString());
+
+            if (message.tx.confirmations !== 6)
+              return rej();
+
+            if (message.tx.hash !== ctx.tx.hash)
+              return;
+
+            expect(message.balances.confirmations0).to.equal(ctx.balance);
+            expect(message.balances.confirmations3).to.equal(ctx.balance);
+            expect(message.balances.confirmations6).to.equal(ctx.balance);
+
+            await ctx.amqp.channel.deleteQueue(`app_${config.rabbit.serviceName}_test_features.balance`);
+            res();
+          }, {noAck: true})
+        );
+
+      })(),
+      (async () => {
+        await ctx.amqp.channel.assertQueue(`app_${config.rabbit.serviceName}_test_features2.balance`);
+        await ctx.amqp.channel.bindQueue(`app_${config.rabbit.serviceName}_test_features2.balance`, 'events', `${config.rabbit.serviceName}_balance.${address}`);
+        await new Promise((res, rej) =>
+          ctx.amqp.channel.consume(`app_${config.rabbit.serviceName}_test_features2.balance`, async data => {
+
+            if (!data)
+              return;
+
+            const message = JSON.parse(data.content.toString());
+
+            if (message.tx.confirmations !== 3 && message.tx.confirmations !== 6)
+              return rej();
+
+            if (message.tx.hash !== ctx.tx.hash)
+              return;
+
+            await ctx.amqp.channel.deleteQueue(`app_${config.rabbit.serviceName}_test_features.balance`);
+            res();
           }, {noAck: true})
         );
 
