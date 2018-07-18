@@ -16,13 +16,11 @@
     "require-all": "^2.2.0"
   },
   "devDependencies": {
-    "bcoin-ipc-node": "github:chronobank/bcoin-ipc-node",
     "babel-eslint": "^7.2.3",
-    "bcoin": "^1.0.0-beta.15",
+    "bcoin": "1.0.0-beta.15",
     "chai": "^4.1.1",
     "eslint": "^4.4.1",
     "eslint-plugin-chronobank": "github:chronobank/eslint-plugin-chronobank",
-    "middleware-bitcoin-blockprocessor": "github:chronobank/middleware-bitcoin-blockprocessor",
     "mocha": "^3.5.0"
   },
   "scripts": {

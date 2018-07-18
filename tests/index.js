@@ -52,7 +52,6 @@ describe('core/blockProcessor', function () {
 */
   describe('fuzz', () => fuzzTests(ctx));
 
-
-//  describe('features', () => featuresTests(ctx));
+  describe('features', () => featuresTests(ctx));
 
 });
