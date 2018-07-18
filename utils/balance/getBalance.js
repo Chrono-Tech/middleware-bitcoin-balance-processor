@@ -41,13 +41,12 @@ module.exports = async (address, blockNumber) => {
 
   blockNumber ?
     _.merge(condition, {
-      outputBlock: {$lte: blockNumber},
+      outputBlock: {$lte: blockNumber, $gt: -1},
       $or: [
         {inputBlock: {$exists: false}},
         {inputBlock: {$gt: blockNumber}}
       ]
     }) : _.merge(condition, {inputBlock: {$exists: false}});
-
 
   const countCoins = await models.coinModel.count(condition);
 
