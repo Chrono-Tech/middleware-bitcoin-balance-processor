@@ -24,10 +24,8 @@ module.exports = (ctx) => {
     await models.coinModel.remove({});
     await models.accountModel.remove({});
 
-    //ctx.balanceProcessorPid = spawn('node', ['node.js'], {env: process.env, stdio: 'ignore'});
-
     await ctx.amqp.channel.deleteQueue(`${config.rabbit.serviceName}.balance_processor`);
-    ctx.balanceProcessorPid = spawn('node', ['index.js'], {env: process.env, stdio: 'inherit'});
+    ctx.balanceProcessorPid = spawn('node', ['node.js'], {env: process.env, stdio: 'ignore'});
 
     let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
     let keyring2 = new bcoin.keyring(ctx.keyPair2, ctx.network);
@@ -136,48 +134,6 @@ module.exports = (ctx) => {
     ]);
 
   });
-
-  /*
-    it('validate balance change on block arrive', async () => {
-      let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-      const address = keyring.getAddress().toString();
-
-      let block = await models.blockModel.find({}).sort({number: -1}).limit(1);
-
-      block = block[0].number;
-
-      await Promise.all([
-        (async () => {
-          await ctx.amqp.channel.publish('events', `${config.rabbit.serviceName}_block`, new Buffer(JSON.stringify({block: block})));
-        })(),
-        (async () => {
-          await ctx.amqp.channel.assertQueue(`app_${config.rabbit.serviceName}_test_features.balance`);
-          await ctx.amqp.channel.bindQueue(`app_${config.rabbit.serviceName}_test_features.balance`, 'events', `${config.rabbit.serviceName}_balance.${address}`);
-          await new Promise((res, rej) =>
-            ctx.amqp.channel.consume(`app_${config.rabbit.serviceName}_test_features.balance`, async data => {
-
-              if (!data)
-                return;
-
-              const message = JSON.parse(data.content.toString());
-
-              if (message.tx.confirmations !== 3 && message.tx.confirmations !== 6)
-                rej();
-
-              if (ctx.tx.hash === message.tx.hash)
-                res();
-
-              confirmations++;
-
-              await ctx.amqp.channel.deleteQueue(`app_${config.rabbit.serviceName}_test_features.balance`);
-            }, {noAck: true})
-          );
-
-        })()
-      ]);
-
-    });
-  */
 
   it('generate unconfirmed coin for accountB', async () => {
 
@@ -459,8 +415,12 @@ module.exports = (ctx) => {
 
       })()
     ]);
-
   });
 
+  after(()=>{
+    delete ctx.balance;
+    delete ctx.tx;
+    delete ctx.coins;
+  })
 
 };

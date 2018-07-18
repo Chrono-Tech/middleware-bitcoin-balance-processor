@@ -10,7 +10,7 @@ const config = require('../config'),
   models = require('../models'),
   bcoin = require('bcoin'),
   spawn = require('child_process').spawn,
-  //fuzzTests = require('./fuzz'),
+  fuzzTests = require('./fuzz'),
   //performanceTests = require('./performance'),
   featuresTests = require('./features'),
   Network = require('bcoin/lib/protocol/network'),
@@ -49,10 +49,10 @@ describe('core/blockProcessor', function () {
   describe('block', () => blockTests(ctx));
 
   describe('performance', () => performanceTests(ctx));
-
-  describe('fuzz', () => fuzzTests(ctx));
 */
+  describe('fuzz', () => fuzzTests(ctx));
 
-  describe('features', () => featuresTests(ctx));
+
+//  describe('features', () => featuresTests(ctx));
 
 });
