@@ -7,9 +7,8 @@
 const config = require('./config'),
   mongoose = require('mongoose'),
   Promise = require('bluebird'),
-  getConfirmedBalanceToBlock = require('./utils/balance/getConfirmedBalanceToBlock'),
+  getBalanceToBlock = require('./utils/balance/getBalanceToBlock'),
   getUnconfirmedBalance = require('./utils/balance/getUnconfirmedBalance'),
-  getAllUpdateBalance = require('./utils/balance/getAllUpdateBalance'),
   bunyan = require('bunyan'),
   _ = require('lodash'),
   models = require('./models'),
@@ -65,22 +64,19 @@ let init = async () => {
       let payload = JSON.parse(data.content.toString());
       const addr = data.fields.routingKey.slice(TX_QUEUE.length + 1) || payload.address;
 
-      let updates = {};
+      let updates = [];
 
       if (payload.block)
-        updates = await getConfirmedBalanceToBlock(payload.block);
+        updates = await getBalanceToBlock(payload.block);
 
-      if((!payload.block && !payload.hash) || payload.hash){
+
+      if ((!payload.block && !payload.hash) || payload.hash) {
         let isExist = await models.accountModel.count({address: addr});
         if (!isExist)
           return channel.ack(data);
-      }
 
-      if (payload.hash)
         updates = [await getUnconfirmedBalance(addr, payload.hash ? payload : null)];
-
-      if (!payload.block && !payload.hash)
-        updates = [await getAllUpdateBalance(addr)];
+      }
 
 
       for (let update of _.compact(updates)) {
@@ -91,11 +87,11 @@ let init = async () => {
         account.markModified('balances');
         account.save();
 
-        if(update.data.length)
+        if (update.data.length)
           for (let item of update.data)
             await channel.publish('events', `${config.rabbit.serviceName}_balance.${update.address}`, new Buffer(JSON.stringify({
               address: update.address,
-              balances: item.balances,
+              balances: account.balances,
               tx: item.tx
             })));
         log.info(`balance updated for ${update.address}`);
