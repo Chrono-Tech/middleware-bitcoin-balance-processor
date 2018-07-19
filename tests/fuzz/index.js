@@ -35,7 +35,7 @@ module.exports = (ctx) => {
       isActive: true
     });
 
-
+    await ctx.amqp.channel.deleteQueue(`${config.rabbit.serviceName}.balance_processor`);
     ctx.balanceProcessorPid = spawn('node', ['index.js'], {env: process.env, stdio: 'ignore'});
     await Promise.delay(10000);
   });
@@ -177,8 +177,6 @@ module.exports = (ctx) => {
   });
 
 
-
-
   it('restart balance processor', async () => {
     let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
     const address = keyring.getAddress().toString();
@@ -188,8 +186,6 @@ module.exports = (ctx) => {
     let account = await models.accountModel.findOne({address: address});
     expect(_.isEqual(JSON.parse(JSON.stringify(ctx.balances)), JSON.parse(JSON.stringify(account.balances)))).to.equal(false);
   });
-
-
 
 
   after(async () => {
