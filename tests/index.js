@@ -14,7 +14,7 @@ const config = require('../config'),
   performanceTests = require('./performance'),
   featuresTests = require('./features'),
   Network = require('bcoin/lib/protocol/network'),
-  //blockTests = require('./blocks'),
+  blockTests = require('./blocks'),
   Promise = require('bluebird'),
   mongoose = require('mongoose'),
   amqp = require('amqplib'),
@@ -54,11 +54,11 @@ describe('core/balanceProcessor', function () {
 
 
 
-//  describe('block', () => blockTests(ctx));
+  describe('block', () => blockTests(ctx));
 
-  //describe('performance', () => performanceTests(ctx));
+  describe('performance', () => performanceTests(ctx));
 
-  //describe('fuzz', () => fuzzTests(ctx));
+  describe('fuzz', () => fuzzTests(ctx));
 
   describe('features', () => featuresTests(ctx));
 

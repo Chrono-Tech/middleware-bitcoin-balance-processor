@@ -12,7 +12,6 @@
     "middleware-common-components": "github:ChronoBank/middleware-common-components",
     "mongoose": "^4.11.7",
     "mongoose-long": "^0.2.1",
-    "node-ipc": "^9.1.1",
     "require-all": "^2.2.0"
   },
   "devDependencies": {

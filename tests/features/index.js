@@ -8,7 +8,7 @@ require('dotenv/config');
 
 const models = require('../../models'),
   config = require('../../config'),
-  getFullTxFromCache = require('../utils/tx/getFullTxFromCache'),
+  getFullTxFromCache = require('../../utils/tx/getFullTxFromCache'),
   bcoin = require('bcoin'),
   _ = require('lodash'),
   uniqid = require('uniqid'),
@@ -110,7 +110,7 @@ module.exports = (ctx) => {
       (async () => {
 
         tx = await models.txModel.findOne({});
-        tx = await getFullTxFromCache(tx._id);
+        tx = await getFullTxFromCache(tx.blockNumber, tx.index);
         await ctx.amqp.channel.publish('events', `${config.rabbit.serviceName}_transaction.${address}`, new Buffer(JSON.stringify(tx)));
       })(),
       (async () => {
@@ -202,7 +202,7 @@ module.exports = (ctx) => {
       (async () => {
         const coin = await models.coinModel.findOne({outputBlock: -1, address: address2});
         ctx.tx = await models.txModel.findOne({blockNumber: -1, index: coin.outputTxIndex});
-        ctx.tx = await getFullTxFromCache(ctx.tx._id);
+        ctx.tx = await getFullTxFromCache(ctx.tx.blockNumber, ctx.tx.index);
         await ctx.amqp.channel.publish('events', `${config.rabbit.serviceName}_transaction.${address}`, new Buffer(JSON.stringify(ctx.tx)));
         await ctx.amqp.channel.publish('events', `${config.rabbit.serviceName}_transaction.${address2}`, new Buffer(JSON.stringify(ctx.tx)));
       })(),
