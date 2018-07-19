@@ -11,10 +11,10 @@ const config = require('../config'),
   bcoin = require('bcoin'),
   spawn = require('child_process').spawn,
   fuzzTests = require('./fuzz'),
-  //performanceTests = require('./performance'),
+  performanceTests = require('./performance'),
   featuresTests = require('./features'),
   Network = require('bcoin/lib/protocol/network'),
-  //blockTests = require('./blocks'),
+  blockTests = require('./blocks'),
   Promise = require('bluebird'),
   mongoose = require('mongoose'),
   amqp = require('amqplib'),
@@ -25,7 +25,7 @@ mongoose.connect(config.mongo.data.uri, {useMongoClient: true});
 mongoose.accounts = mongoose.createConnection(config.mongo.accounts.uri, {useMongoClient: true});
 
 
-describe('core/blockProcessor', function () {
+describe('core/balanceProcessor', function () {
 
   before(async () => {
     models.init();
@@ -36,6 +36,14 @@ describe('core/blockProcessor', function () {
     ctx.amqp.instance = await amqp.connect(config.rabbit.url);
     ctx.amqp.channel = await ctx.amqp.instance.createChannel();
     await ctx.amqp.channel.assertExchange('events', 'topic', {durable: false});
+    await ctx.amqp.channel.assertExchange('internal', 'topic', {durable: false});
+    await ctx.amqp.channel.assertQueue(`${config.rabbit.serviceName}_current_provider.get`, {durable: false});
+    await ctx.amqp.channel.bindQueue(`${config.rabbit.serviceName}_current_provider.get`, 'internal', `${config.rabbit.serviceName}_current_provider.get`);
+
+    ctx.amqp.channel.consume(`${config.rabbit.serviceName}_current_provider.get`, async () => {
+        channel.publish('internal', `${config.rabbit.serviceName}_current_provider.set`, new Buffer(JSON.stringify({index: 0})));
+    }, {noAck: true});
+
   });
 
   after(async () => {
@@ -45,14 +53,13 @@ describe('core/blockProcessor', function () {
   });
 
 
-/*
+
   describe('block', () => blockTests(ctx));
 
   describe('performance', () => performanceTests(ctx));
-*/
+
   describe('fuzz', () => fuzzTests(ctx));
 
-
-//  describe('features', () => featuresTests(ctx));
+  describe('features', () => featuresTests(ctx));
 
 });
