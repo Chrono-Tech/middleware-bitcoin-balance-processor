@@ -34,5 +34,8 @@ module.exports = {
   rabbit: {
     url: process.env.RABBIT_URI || 'amqp://localhost:5672',
     serviceName: process.env.RABBIT_SERVICE_NAME || 'app_bitcoin'
+  },
+  logs: {
+    level: process.env.LOG_LEVEL || 'info'
   }
 };
