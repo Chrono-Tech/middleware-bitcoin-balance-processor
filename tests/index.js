@@ -5,11 +5,11 @@
  */
 
 require('dotenv/config');
+process.env.LOG_LEVEL = 'error';
 
 const config = require('../config'),
   models = require('../models'),
   bcoin = require('bcoin'),
-  spawn = require('child_process').spawn,
   fuzzTests = require('./fuzz'),
   performanceTests = require('./performance'),
   featuresTests = require('./features'),
