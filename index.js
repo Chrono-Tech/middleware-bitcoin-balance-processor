@@ -12,7 +12,7 @@ const config = require('./config'),
   bunyan = require('bunyan'),
   _ = require('lodash'),
   models = require('./models'),
-  log = bunyan.createLogger({name: 'core.balanceProcessor'}),
+  log = bunyan.createLogger({name: 'core.balanceProcessor', level: config.logs.level}),
   amqp = require('amqplib');
 
 const TX_QUEUE = `${config.rabbit.serviceName}_transaction`;
