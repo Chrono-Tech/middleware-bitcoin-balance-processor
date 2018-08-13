@@ -6,6 +6,9 @@
 
 const Promise = require('bluebird'),
   getBalance = require('./getBalance'),
+  config = require('../../config'),
+  networks = require('middleware-common-components/factories/btcNetworks'),
+  network = networks[config.node.network],
   getFullTxFromCache = require('../tx/getFullTxFromCache'),
   models = require('../../models'),
   _ = require('lodash');
@@ -47,15 +50,21 @@ module.exports = async (blockHeight) => {
 
   const balanceChanges = await Promise.mapSeries(_.toPairs(addressInCoins), async item => {
     let result = {
-      address: item[0],
       balances: {},
       txs: []
     };
 
-    const accountExist = await models.accountModel.count({address: result.address});
-    if (!accountExist)
+    const addresses = _.chain(network.getAllAddressForms(item[0]))
+      .values()
+      .compact()
+      .value();
+
+    const account = await models.accountModel.findOne({address: {$in: addresses}});
+
+    if (!account)
       return;
 
+    result.address = account.address;
     let coins = item[1];
 
     let outputsConfirmations3 = _.chain(coins).filter({block: blockHeight - 2})
