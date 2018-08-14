@@ -5,7 +5,7 @@
  */
 
 const models = require('../../models'),
-  bcoin = require('bcoin'),
+  keyring = require('bcoin/lib/primitives/keyring'),
   _ = require('lodash'),
   uniqid = require('uniqid'),
   getBalance = require('../../utils/balance/getBalance'),
@@ -22,8 +22,8 @@ module.exports = (ctx) => {
     await models.accountModel.remove({});
 
 
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+    let key = new keyring(ctx.keyPair);
+    const address = key.getAddress('base58', ctx.network);
 
     await models.accountModel.create({
       address: address,
@@ -39,8 +39,8 @@ module.exports = (ctx) => {
 
   it('generate 100 coins', async () => {
 
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+    let key = new keyring(ctx.keyPair);
+    const address = key.getAddress('base58', ctx.network);
 
 
     for (let blockNumber = 0; blockNumber < 10; blockNumber++) {
@@ -107,8 +107,8 @@ module.exports = (ctx) => {
   });
 
   it('validate getBalance function', async () => {
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+    let key = new keyring(ctx.keyPair);
+    const address = key.getAddress('base58', ctx.network);
 
     const block = await models.blockModel.findOne().sort({number: -1}).select('number');
     const blockNumber = block.number;
@@ -143,8 +143,8 @@ module.exports = (ctx) => {
   });
 
   it('validate getUnconfirmedBalance function', async () => {
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+    let key = new keyring(ctx.keyPair);
+    const address = key.getAddress('base58', ctx.network);
 
     const block = await models.blockModel.findOne().sort({number: -1}).select('number');
     const blockNumber = block.number;
@@ -165,8 +165,8 @@ module.exports = (ctx) => {
 
 
   it('validate getBalanceToBlock function', async () => {
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+    let key = new keyring(ctx.keyPair, ctx.network);
+    const address = key.getAddress('base58', ctx.network);
 
     const block = await models.blockModel.findOne().sort({number: -1}).select('number');
     const blockNumber = block.number;

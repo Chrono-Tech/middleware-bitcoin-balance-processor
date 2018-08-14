@@ -5,6 +5,9 @@
  */
 
 const models = require('../../models'),
+  config = require('../../config'),
+  networks = require('middleware-common-components/factories/btcNetworks'),
+  network = networks[config.node.network],
   Promise = require('bluebird'),
   BigNumber = require('bignumber.js'),
   _ = require('lodash');
@@ -37,7 +40,13 @@ const sumNumbers = (sums) => {
  */
 
 module.exports = async (address, blockNumber) => {
-  const condition = {address: address};
+
+  const addresses = _.chain(network.getAllAddressForms(address))
+    .values()
+    .compact()
+    .value();
+
+  const condition = {address: {$in: addresses}};
 
   blockNumber ?
     _.merge(condition, {

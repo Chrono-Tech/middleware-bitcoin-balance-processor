@@ -6,12 +6,11 @@
 
 const models = require('../../models'),
   config = require('../../config'),
-  bcoin = require('bcoin'),
+  keyring = require('bcoin/lib/primitives/keyring'),
   _ = require('lodash'),
   uniqid = require('uniqid'),
   getUnconfirmedBalance = require('../../utils/balance/getUnconfirmedBalance'),
   getBalanceToBlock = require('../../utils/balance/getBalanceToBlock'),
-  memwatch = require('memwatch-next'),
   expect = require('chai').expect,
   Promise = require('bluebird'),
   spawn = require('child_process').spawn;
@@ -25,8 +24,8 @@ module.exports = (ctx) => {
     await models.accountModel.remove({});
 
 
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+    let key = new keyring(ctx.keyPair);
+    const address = key.getAddress('base58', ctx.network);
 
     await models.accountModel.create({
       address: address,
@@ -46,8 +45,8 @@ module.exports = (ctx) => {
 
   it('generate 100.000 unspent coins', async () => {
 
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+    let key = new keyring(ctx.keyPair);
+    const address = key.getAddress('base58', ctx.network);
 
 
     for (let blockNumber = 0; blockNumber < 100; blockNumber++) {
@@ -116,19 +115,18 @@ module.exports = (ctx) => {
 
 
   it('validate unconfirmed balance calculate performance and leaks', async () => {
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+    let key = new keyring(ctx.keyPair, ctx.network);
+    const address = key.getAddress('base58', ctx.network);
     let coinAmount = await models.coinModel.count();
 
     let start = Date.now();
-    let hd = new memwatch.HeapDiff();
+    const memUsage = process.memoryUsage().heapUsed / 1024 / 1024;
     await getUnconfirmedBalance(address);
+    global.gc();
+    await Promise.delay(5000);
+    const memUsage2 = process.memoryUsage().heapUsed / 1024 / 1024;
 
-    let diff = hd.end();
-
-    let leakObjects = _.filter(diff.change.details, detail => detail.size_bytes / 1024 / 1024 > 3);
-
-    expect(leakObjects.length).to.be.eq(0);
+    expect(memUsage2 - memUsage).to.be.below(3);
     expect(Date.now() - start).to.be.below(coinAmount);
   });
 
@@ -139,22 +137,21 @@ module.exports = (ctx) => {
     let coinAmount = await models.coinModel.count();
 
     let start = Date.now();
-    let hd = new memwatch.HeapDiff();
+    const memUsage = process.memoryUsage().heapUsed / 1024 / 1024;
     await getBalanceToBlock(blockNumber);
+    global.gc();
+    await Promise.delay(5000);
+    const memUsage2 = process.memoryUsage().heapUsed / 1024 / 1024;
 
-    let diff = hd.end();
-
-    let leakObjects = _.filter(diff.change.details, detail => detail.size_bytes / 1024 / 1024 > 3);
     ctx.balanceCalcTime = Date.now() - start;
-
-    expect(leakObjects.length).to.be.eq(0);
+    expect(memUsage2 - memUsage).to.be.below(3);
     expect(ctx.balanceCalcTime).to.be.below(coinAmount);
   });
 
 
   it('validate balance processor notification speed', async () => {
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+    let key = new keyring(ctx.keyPair, ctx.network);
+    const address = key.getAddress('base58', ctx.network);
 
     let block = await models.blockModel.find({}).sort({number: -1}).limit(1);
     block = block[0].number;
