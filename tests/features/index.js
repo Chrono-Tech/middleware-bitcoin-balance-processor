@@ -9,7 +9,7 @@ require('dotenv/config');
 const models = require('../../models'),
   config = require('../../config'),
   getFullTxFromCache = require('../../utils/tx/getFullTxFromCache'),
-  bcoin = require('bcoin'),
+  keyring = require('bcoin/lib/primitives/keyring'),
   _ = require('lodash'),
   uniqid = require('uniqid'),
   spawn = require('child_process').spawn,
@@ -27,11 +27,11 @@ module.exports = (ctx) => {
     await ctx.amqp.channel.deleteQueue(`${config.rabbit.serviceName}.balance_processor`);
     ctx.balanceProcessorPid = spawn('node', ['index.js'], {env: process.env, stdio: 'ignore'});
 
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    let keyring2 = new bcoin.keyring(ctx.keyPair2, ctx.network);
+    let key = new keyring(ctx.keyPair);
+    let key2 = new keyring(ctx.keyPair2);
 
-    const address = keyring.getAddress().toString();
-    const address2 = keyring2.getAddress().toString();
+    const address = key.getAddress('base58', ctx.network);
+    const address2 = key2.getAddress('base58', ctx.network);
 
     await models.accountModel.create({
       address: address,
@@ -56,8 +56,8 @@ module.exports = (ctx) => {
 
   it('generate coins', async () => {
 
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+    let key = new keyring(ctx.keyPair);
+    const address = key.getAddress('base58', ctx.network);
 
 
     for (let blockNumber = 0; blockNumber < 1000; blockNumber++) {
@@ -101,8 +101,8 @@ module.exports = (ctx) => {
   });
 
   it('validate balance change on unconfirmed tx', async () => {
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+    let key = new keyring(ctx.keyPair);
+    const address = key.getAddress('base58', ctx.network);
 
     let tx;
 
@@ -137,11 +137,11 @@ module.exports = (ctx) => {
 
   it('generate unconfirmed coin for accountB', async () => {
 
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    let keyring2 = new bcoin.keyring(ctx.keyPair2, ctx.network);
+    let key = new keyring(ctx.keyPair);
+    let key2 = new keyring(ctx.keyPair2);
 
-    const address = keyring.getAddress().toString();
-    const address2 = keyring2.getAddress().toString();
+    const address = key.getAddress('base58', ctx.network);
+    const address2 = key2.getAddress('base58', ctx.network);
 
     ctx.coins = [];
     ctx.txs = [];
@@ -192,11 +192,11 @@ module.exports = (ctx) => {
   });
 
   it('validate balance change on unconfirmed tx', async () => {
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    let keyring2 = new bcoin.keyring(ctx.keyPair2, ctx.network);
+    let key = new keyring(ctx.keyPair);
+    let key2 = new keyring(ctx.keyPair2);
 
-    const address = keyring.getAddress().toString();
-    const address2 = keyring2.getAddress().toString();
+    const address = key.getAddress('base58', ctx.network);
+    const address2 = key2.getAddress('base58', ctx.network);
 
     await Promise.all([
       (async () => {
@@ -252,11 +252,11 @@ module.exports = (ctx) => {
 
 
   it('validate balance change after 3 blocks (3 confirmations)', async () => {
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    let keyring2 = new bcoin.keyring(ctx.keyPair2, ctx.network);
+    let key = new keyring(ctx.keyPair);
+    let key2 = new keyring(ctx.keyPair2);
 
-    const address = keyring.getAddress().toString();
-    const address2 = keyring2.getAddress().toString();
+    const address = key.getAddress('base58', ctx.network);
+    const address2 = key2.getAddress('base58', ctx.network);
 
     let block = await models.blockModel.find({}).sort({number: -1}).limit(1);
     block = block[0].number;
@@ -356,11 +356,11 @@ module.exports = (ctx) => {
   });
 
   it('validate balance change after 6 blocks (6 confirmations)', async () => {
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    let keyring2 = new bcoin.keyring(ctx.keyPair2, ctx.network);
+    let key = new keyring(ctx.keyPair);
+    let key2 = new keyring(ctx.keyPair2);
 
-    const address = keyring.getAddress().toString();
-    const address2 = keyring2.getAddress().toString();
+    const address = key.getAddress('base58', ctx.network);
+    const address2 = key2.getAddress('base58', ctx.network);
 
     let block = await models.blockModel.find({}).sort({number: -1}).limit(1);
     block = block[0].number;
@@ -441,8 +441,8 @@ module.exports = (ctx) => {
   });
 
   it('validate balance on user registration', async () => {
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+    let key = new keyring(ctx.keyPair);
+    const address = key.getAddress('base58', ctx.network);
 
     await models.accountModel.update({address: address}, {
       $set: {

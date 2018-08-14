@@ -7,6 +7,8 @@
 const config = require('./config'),
   mongoose = require('mongoose'),
   Promise = require('bluebird'),
+  networks = require('middleware-common-components/factories/btcNetworks'),
+  network = networks[config.node.network],
   getBalanceToBlock = require('./utils/balance/getBalanceToBlock'),
   getUnconfirmedBalance = require('./utils/balance/getUnconfirmedBalance'),
   bunyan = require('bunyan'),
@@ -69,13 +71,17 @@ let init = async () => {
       if (payload.block)
         updates = await getBalanceToBlock(payload.block);
 
-
       if ((!payload.block && !payload.hash) || payload.hash) {
-        let isExist = await models.accountModel.count({address: addr});
-        if (!isExist)
+        const addresses = _.chain(network.getAllAddressForms(addr))
+          .values()
+          .compact()
+          .value();
+
+        const account = await models.accountModel.findOne({address: {$in: addresses}});
+        if (!account)
           return channel.ack(data);
 
-        updates = [await getUnconfirmedBalance(addr, payload.hash ? payload : null)];
+        updates = [await getUnconfirmedBalance(account.address, payload.hash ? payload : null)];
       }
 
 
