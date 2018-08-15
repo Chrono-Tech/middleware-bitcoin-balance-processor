@@ -6,10 +6,10 @@
 
 const models = require('../../models'),
   config = require('../../config'),
-  bcoin = require('bcoin'),
   _ = require('lodash'),
   uniqid = require('uniqid'),
   expect = require('chai').expect,
+  keyring = require('bcoin/lib/primitives/keyring'),
   Promise = require('bluebird'),
   spawn = require('child_process').spawn;
 
@@ -22,8 +22,8 @@ module.exports = (ctx) => {
     await models.accountModel.remove({});
 
 
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+    let key = new keyring(ctx.keyPair);
+    const address = key.getAddress('base58', ctx.network);
 
     await models.accountModel.create({
       address: address,
@@ -43,8 +43,8 @@ module.exports = (ctx) => {
 
   it('generate coins', async () => {
 
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+    let key = new keyring(ctx.keyPair);
+    const address = key.getAddress('base58', ctx.network);
 
 
     for (let blockNumber = 0; blockNumber < 100; blockNumber++) {
@@ -89,8 +89,8 @@ module.exports = (ctx) => {
 
 
   it('validate balance processor update balance ability', async () => {
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+    let key = new keyring(ctx.keyPair);
+    const address = key.getAddress('base58', ctx.network);
 
     let block = await models.blockModel.find({}).sort({number: -1}).limit(1);
     block = block[0].number;
@@ -128,8 +128,8 @@ module.exports = (ctx) => {
 
   it('generate again coins and send notifications', async () => {
 
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+    let key = new keyring(ctx.keyPair);
+    const address = key.getAddress('base58', ctx.network);
 
     let block = await models.blockModel.find({}).sort({number: -1}).limit(1);
     block = block[0].number;
@@ -178,8 +178,8 @@ module.exports = (ctx) => {
 
 
   it('restart balance processor', async () => {
-    let keyring = new bcoin.keyring(ctx.keyPair, ctx.network);
-    const address = keyring.getAddress().toString();
+    let key = new keyring(ctx.keyPair);
+    const address = key.getAddress('base58', ctx.network);
 
     ctx.balanceProcessorPid = spawn('node', ['index.js'], {env: process.env, stdio: 'ignore'});
     await Promise.delay(20000);

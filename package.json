@@ -16,16 +16,15 @@
   },
   "devDependencies": {
     "babel-eslint": "^7.2.3",
-    "bcoin": "1.0.0-beta.15",
+    "bcoin": "^1.0.2",
     "chai": "^4.1.1",
     "eslint": "^4.4.1",
     "eslint-plugin-chronobank": "github:chronobank/eslint-plugin-chronobank",
-    "memwatch-next": "^0.3.0",
     "mocha": "^3.5.0"
   },
   "scripts": {
     "lint": "node ./node_modules/eslint/bin/eslint.js -c .eslintrc.js --ext .js --fix --ignore-path .eslintignore .",
-    "test": "node ./node_modules/mocha/bin/mocha -t 300000 tests/index.js"
+    "test": "node ./node_modules/mocha/bin/mocha -t 300000 -gc tests/index.js"
   },
   "author": "chronobank",
   "license": "AGPL-3.0",
