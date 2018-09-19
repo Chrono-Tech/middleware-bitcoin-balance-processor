@@ -35,6 +35,12 @@ module.exports = {
     url: process.env.RABBIT_URI || 'amqp://localhost:5672',
     serviceName: process.env.RABBIT_SERVICE_NAME || 'app_bitcoin'
   },
+  infrastructureRabbit: {
+    url: process.env.RABBIT_VERSION_URI || process.env.RABBIT_URI || 'amqp://localhost:5672',
+    exchange: process.env.RABBIT_VERSION_EXCHANGE || 'internal',
+    serviceName: process.env.RABBIT_VERSION_SERVICE_NAME || 'infrastucture' 
+  },
+  checkInfrastructure: process.env.CHECK_INFRASTUCTURE || true,
   node: {
     network: process.env.NETWORK || 'regtest'
   },
