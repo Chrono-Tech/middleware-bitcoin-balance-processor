@@ -64,10 +64,10 @@ The options are presented below:
 | MONGO_DATA_COLLECTION_PREFIX   | the collection prefix for data collections in mongo (If not specified, then the default MONGO_COLLECTION_PREFIX will be used)
 | RABBIT_URI   | rabbitmq URI connection string
 | RABBIT_SERVICE_NAME   | rabbitmq queues prefix
-| INFRASTRUCTURE_RABBIT_URI   | rabbitmq URI connection string for infrastructure
-| INFRASTRUCTURE_RABBIT_SERVICE_NAME   | rabbitmq service name for infrastructure
-| INFRASTRUCTURE_RABBIT_EXCHANGE   | rabbitmq exchange name for infrastructure
-| CHECK_INFRASTRUCTURE | check infrastructure or not (default = true)
+| SYSTEM_RABBIT_URI   | rabbitmq URI connection string for infrastructure
+| SYSTEM_RABBIT_SERVICE_NAME   | rabbitmq service name for infrastructure
+| SYSTEM_RABBIT_EXCHANGE   | rabbitmq exchange name for infrastructure
+| CHECK_SYSTEM | check infrastructure or not (default = true)
 
 License
 ----

@@ -34,25 +34,27 @@ mongoose.accounts = mongoose.createConnection(config.mongo.accounts.uri, {useMon
  * @module entry point
  * @description update balances for registered addresses
  */
-const runInfrastucture = async function () {
+const runSystem = async function () {
   const rabbit = new AmqpService(
-    config.infrastructureRabbit.url, 
-    config.infrastructureRabbit.exchange,
-    config.infrastructureRabbit.serviceName
+    config.systemRabbit.url, 
+    config.systemRabbit.exchange,
+    config.systemRabbit.serviceName
   );
   const info = InfrastructureInfo(require('./package.json'));
-  const infrastructure = new InfrastructureService(info, rabbit, {checkInterval: 10000});
-  await infrastructure.start();
-  infrastructure.on(infrastructure.REQUIREMENT_ERROR, ({requirement, version}) => {
+  const system = new InfrastructureService(info, rabbit, {checkInterval: 10000});
+  await system.start();
+  system.on(system.REQUIREMENT_ERROR, ({requirement, version}) => {
     log.error(`Not found requirement with name ${requirement.name} version=${requirement.version}.` +
         ` Last version of this middleware=${version}`);
     process.exit(1);
   });
-  await infrastructure.checkRequirements();
-  infrastructure.periodicallyCheck();
+  await system.checkRequirements();
+  system.periodicallyCheck();
 };
 
 let init = async () => {
+  if (config.checkSystem)
+    await runSystem();
 
   models.init();
 
@@ -62,8 +64,6 @@ let init = async () => {
     })
   );
 
-  if (config.checkInfrastructure)
-    await runInfrastucture();
 
   let conn = await amqp.connect(config.rabbit.url);
   let channel = await conn.createChannel();
