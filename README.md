@@ -9,7 +9,7 @@ This module is a part of middleware services. You can install it in 2 ways:
 1) through core middleware installer  [middleware installer](https://github.com/ChronoBank/middleware)
 2) by hands: just clone the repo, do 'npm install', set your .env - and you are ready to go
 
-##### About
+##### About 
 This module is used for updating balances for registered accounts.
 
 
@@ -64,6 +64,10 @@ The options are presented below:
 | MONGO_DATA_COLLECTION_PREFIX   | the collection prefix for data collections in mongo (If not specified, then the default MONGO_COLLECTION_PREFIX will be used)
 | RABBIT_URI   | rabbitmq URI connection string
 | RABBIT_SERVICE_NAME   | rabbitmq queues prefix
+| SYSTEM_RABBIT_URI   | rabbitmq URI connection string for infrastructure
+| SYSTEM_RABBIT_SERVICE_NAME   | rabbitmq service name for infrastructure
+| SYSTEM_RABBIT_EXCHANGE   | rabbitmq exchange name for infrastructure
+| CHECK_SYSTEM | check infrastructure or not (default = true)
 
 License
 ----

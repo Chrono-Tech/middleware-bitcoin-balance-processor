@@ -18,6 +18,7 @@ install:
   - npm install
 
 script:
+  - echo "CHECK_SYSTEM=false" > .env
   - sleep 30 && npm test -- --coverage
 
 

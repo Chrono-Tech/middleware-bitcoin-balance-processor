@@ -11,6 +11,12 @@ const config = require('./config'),
   network = networks[config.node.network],
   getBalanceToBlock = require('./utils/balance/getBalanceToBlock'),
   getUnconfirmedBalance = require('./utils/balance/getUnconfirmedBalance'),
+
+  AmqpService = require('middleware_common_infrastructure/AmqpService'),
+  InfrastructureInfo = require('middleware_common_infrastructure/InfrastructureInfo'),
+  InfrastructureService = require('middleware_common_infrastructure/InfrastructureService'),
+  
+
   bunyan = require('bunyan'),
   _ = require('lodash'),
   models = require('./models'),
@@ -28,9 +34,27 @@ mongoose.accounts = mongoose.createConnection(config.mongo.accounts.uri, {useMon
  * @module entry point
  * @description update balances for registered addresses
  */
-
+const runSystem = async function () {
+  const rabbit = new AmqpService(
+    config.systemRabbit.url, 
+    config.systemRabbit.exchange,
+    config.systemRabbit.serviceName
+  );
+  const info = new InfrastructureInfo(require('./package.json'));
+  const system = new InfrastructureService(info, rabbit, {checkInterval: 10000});
+  await system.start();
+  system.on(system.REQUIREMENT_ERROR, ({requirement, version}) => {
+    log.error(`Not found requirement with name ${requirement.name} version=${requirement.version}.` +
+        ` Last version of this middleware=${version}`);
+    process.exit(1);
+  });
+  await system.checkRequirements();
+  system.periodicallyCheck();
+};
 
 let init = async () => {
+  if (config.checkSystem)
+    await runSystem();
 
   models.init();
 
