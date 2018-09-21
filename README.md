@@ -9,7 +9,7 @@ This module is a part of middleware services. You can install it in 2 ways:
 1) through core middleware installer  [middleware installer](https://github.com/ChronoBank/middleware)
 2) by hands: just clone the repo, do 'npm install', set your .env - and you are ready to go
 
-##### About
+##### About 
 This module is used for updating balances for registered accounts.
 
 
