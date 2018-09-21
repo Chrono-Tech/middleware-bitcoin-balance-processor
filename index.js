@@ -35,6 +35,7 @@ mongoose.accounts = mongoose.createConnection(config.mongo.accounts.uri, {useMon
  * @description update balances for registered addresses
  */
 const runSystem = async function () {
+  await channel.assertExchange(config.systemRabbit.exchange, 'topic', {durable: false});
   const rabbit = new AmqpService(
     config.systemRabbit.url, 
     config.systemRabbit.exchange,
