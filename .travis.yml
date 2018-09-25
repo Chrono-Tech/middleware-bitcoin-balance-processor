@@ -10,7 +10,6 @@ services:
   - rabbitmq
 
 before_install:
-  - export CHECK_SYSTEM=0
   - mongo data --eval 'db.dropDatabase();'
   - sudo apt-get update
   - sudo apt-get install python2.7 git-all pkg-config libncurses5-dev libssl-dev libnss3-dev libexpat-dev libc6-dev -y
