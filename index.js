@@ -38,7 +38,7 @@ const runSystem = async function () {
     config.systemRabbit.exchange,
     config.systemRabbit.serviceName
   );
-  const info = new InfrastructureInfo(require('./package.json'));
+  const info = new InfrastructureInfo(require('./package.json'), config.system.waitTime);
   const system = new InfrastructureService(info, rabbit, {checkInterval: 10000});
   await system.start();
   system.on(system.REQUIREMENT_ERROR, (requirement, version) => {
