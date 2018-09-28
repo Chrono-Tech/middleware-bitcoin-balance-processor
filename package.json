@@ -14,7 +14,7 @@
     "dotenv": "^4.0.0",
     "lodash": "^4.17.4",
     "middleware-common-components": "github:ChronoBank/middleware-common-components",
-    "middleware_common_infrastructure": "^1.0.3",
+    "middleware_common_infrastructure": "^1.0.4",
     "mongoose": "^4.11.7",
     "mongoose-long": "^0.2.1",
     "require-all": "^2.2.0"
