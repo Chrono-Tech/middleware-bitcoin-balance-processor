@@ -68,6 +68,7 @@ The options are presented below:
 | SYSTEM_RABBIT_SERVICE_NAME   | rabbitmq service name for infrastructure
 | SYSTEM_RABBIT_EXCHANGE   | rabbitmq exchange name for infrastructure
 | CHECK_SYSTEM | check infrastructure or not (default = true)
+| CHECK_WAIT_TIME | interval for wait respond from requirements
 
 License
 ----
