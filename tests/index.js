@@ -10,6 +10,7 @@ process.env.LOG_LEVEL = 'error';
 const config = require('../config'),
   models = require('../models'),
   bcoin = require('bcoin'),
+  spawn = require('child_process').spawn,
   fuzzTests = require('./fuzz'),
   performanceTests = require('./performance'),
   featuresTests = require('./features'),
@@ -37,12 +38,17 @@ describe('core/balanceProcessor', function () {
     ctx.amqp.channel = await ctx.amqp.instance.createChannel();
     await ctx.amqp.channel.assertExchange('events', 'topic', {durable: false});
     await ctx.amqp.channel.assertExchange('internal', 'topic', {durable: false});
-    await ctx.amqp.channel.assertQueue(`${config.rabbit.serviceName}_current_provider.get`, {durable: false});
+    await ctx.amqp.channel.assertQueue(`${config.rabbit.serviceName}_current_provider.get`, {durable: false, autoDelete: true});
     await ctx.amqp.channel.bindQueue(`${config.rabbit.serviceName}_current_provider.get`, 'internal', `${config.rabbit.serviceName}_current_provider.get`);
 
     ctx.amqp.channel.consume(`${config.rabbit.serviceName}_current_provider.get`, async () => {
         channel.publish('internal', `${config.rabbit.serviceName}_current_provider.set`, new Buffer(JSON.stringify({index: 0})));
     }, {noAck: true});
+    
+    ctx.checkerPid = spawn('node', ['tests/utils/proxyChecker.js'], {
+      env: process.env, stdio: 'ignore'
+    });
+    await Promise.delay(5000);
 
   });
 
@@ -50,6 +56,7 @@ describe('core/balanceProcessor', function () {
     mongoose.disconnect();
     mongoose.accounts.close();
     await ctx.amqp.instance.close();
+    await ctx.checkerPid.kill();
   });
 
 
