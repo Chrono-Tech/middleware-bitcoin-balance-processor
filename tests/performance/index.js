@@ -155,7 +155,7 @@ module.exports = (ctx) => {
 
     let block = await models.blockModel.find({}).sort({number: -1}).limit(1);
     block = block[0].number;
-    await ctx.amqp.channel.assertQueue(`app_${config.rabbit.serviceName}_test_performance.balance`);
+    await ctx.amqp.channel.assertQueue(`app_${config.rabbit.serviceName}_test_performance.balance`, {autoDelete: true});
     await ctx.amqp.channel.bindQueue(`app_${config.rabbit.serviceName}_test_performance.balance`, 'events', `${config.rabbit.serviceName}_balance.${address}`);
 
     const start = Date.now();
